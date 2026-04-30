@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .sim-card { position: relative; overflow: hidden; }
+    .sim-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+
+    .stats-row {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 10px; margin: 12px 0;
+    }
+    .stat {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: var(--radius-sm);
+        padding: 10px; text-align: center;
+    }
+    .stat .val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.2em; font-weight: 700;
+    }
+    .stat .lbl { font-size: 0.72em; color: var(--text-muted); margin-top: 2px; }
+    .green { color: var(--accent-green); }
+    .red { color: var(--accent-red); }
+    .blue { color: var(--accent-blue); }
+
+    .position-badge {
+        display: inline-block; padding: 3px 10px; border-radius: 12px;
+        font-size: 0.8em; font-weight: 600;
+    }
+    .position-badge.long { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+    .position-badge.cash { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+
+    .chart-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+    .chart-section canvas { width: 100%; height: 300px; }
+    .chart-legend {
+        display: flex; gap: 20px; justify-content: center;
+        margin-top: 10px; font-size: 0.85em; flex-wrap: wrap;
+        color: var(--text-muted);
+    }
+    .chart-legend span { display: flex; align-items: center; gap: 6px; }
+    .legend-line { width: 20px; height: 3px; display: inline-block; border-radius: 2px; }
+
+    .ranking-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    .ranking-table th {
+        text-align: left; padding: 10px 8px; color: var(--text-muted);
+        border-bottom: 2px solid var(--border); font-weight: 600;
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .ranking-table td { padding: 8px; border-bottom: 1px solid rgba(30, 41, 59, 0.5); }
+    .ranking-table tr:hover { background: var(--bg-card-hover); }
+
+    .indicator-row {
+        display: flex; justify-content: space-between;
+        padding: 3px 0; font-size: 0.85em;
+        border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+    }
+    .indicator-row .k { color: var(--text-muted); }
+    .indicator-row .v { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+
+    .side-buy { color: var(--accent-green); font-weight: 600; }
+    .side-sell { color: var(--accent-red); font-weight: 600; }
+</style>
+
+<div class="card" style="margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div>
+            <h2 style="margin-bottom: 4px;">Simulation Overview</h2>
+            <p class="muted" style="margin-top: 0; font-size: 12px;">Simulations run in parallel to live data. Compare strategy performance side by side.</p>
+        </div>
+        <div class="muted" style="font-size: 12px;">
+            <span>Last update: <span id="last-update" style="color:var(--text-secondary);">--</span></span> |
+            <span>Feed: <span id="sim-active-feed" style="color:var(--accent-cyan);font-weight:600;">--</span></span> |
+            <span>Lag: <span id="sim-primary-lag" style="font-weight:600;">--</span></span>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Ranking -->
+<div class="card section-wide" style="margin-bottom: 16px;">
+    <h3 style="margin-bottom: 12px;">Performance Ranking</h3>
+    <div style="overflow-x: auto;">
+        <table class="ranking-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Strategy</th>
+                    <th>Equity</th>
+                    <th>PnL</th>
+                    <th>Win Rate</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Trades</th>
+                </tr>
+            </thead>
+            <tbody id="ranking-body">
+                <tr><td colspan="9" class="muted" style="text-align:center;padding:20px;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Equity Chart -->
+<div class="chart-section">
+    <h3 style="margin-bottom: 12px;">Equity Over Time</h3>
+    <canvas id="equityChart"></canvas>
+    <div class="chart-legend" id="chartLegend">
+        <span><span class="legend-line" style="background:var(--text-muted);"></span> Baseline</span>
+    </div>
+</div>
+
+<!-- Sim Cards -->
+<div id="sim-cards" class="grid" style="margin-bottom: 16px;"></div>
+
+<!-- Signal & Trade Tables -->
+<div class="grid">
+    <div class="card section-half">
+        <h3 style="margin-bottom: 10px;">Recent Signal Decisions</h3>
+        <div style="max-height: 360px; overflow: auto;">
+            <table>
+                <thead>
+                    <tr><th>Time</th><th>Sim</th><th>Signal</th><th>Acted</th><th>Reason</th><th>Price</th></tr>
+                </thead>
+                <tbody id="signals-table"></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card section-half">
+        <h3 style="margin-bottom: 10px;">Recent Executed Trades</h3>
+        <div style="max-height: 360px; overflow: auto;">
+            <table>
+                <thead>
+                    <tr><th>Time</th><th>Sim</th><th>Side</th><th>Qty</th><th>Price</th><th>PnL</th></tr>
+                </thead>
+                <tbody id="trades-table"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#06b6d4','#f97316','#ef4444','#ec4899','#a78bfa','#34d399'];
+
+    function fmt(n, d) { return n != null ? Number(n).toFixed(d != null ? d : 2) : '--'; }
+    function fmtUsd(n) { return n != null ? '$' + fmt(n, 2) : '--'; }
+
+    function formatTs(ts) {
+        if (!ts) return '--';
+        return ts.replace('T', ' ').replace('Z', '');
+    }
+
+    function pnlClass(v) { return v > 0 ? 'green' : v < 0 ? 'red' : ''; }
+
+    // Equity chart
+    function drawEquityChart(sims) {
+        const canvas = document.getElementById('equityChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.clientWidth;
+        const H = canvas.clientHeight;
+
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, W, H);
+
+        if (!sims || !sims.length) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Waiting for simulation data...', W / 2, H / 2);
+            return;
+        }
+
+        // Build equity series from trades
+        const series = [];
+        let hasData = false;
+        sims.forEach(sim => {
+            const eq = sim.equity_history || [];
+            if (eq.length > 0) hasData = true;
+            series.push(eq);
+        });
+
+        if (!hasData) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('No equity history yet...', W / 2, H / 2);
+            return;
+        }
+
+        const pad = { top: 20, right: 60, bottom: 30, left: 10 };
+        const cw = W - pad.left - pad.right;
+        const ch = H - pad.top - pad.bottom;
+
+        const allVals = [];
+        const startEquity = sims[0]?.starting_equity || 10000;
+        allVals.push(startEquity);
+        series.forEach(eq => eq.forEach(p => allVals.push(p.equity || p.value || 0)));
+        sims.forEach(s => { if (s.equity != null) allVals.push(Number(s.equity)); });
+
+        const minV = Math.min(...allVals) * 0.998;
+        const maxV = Math.max(...allVals) * 1.002;
+        const range = maxV - minV || 1;
+
+        let maxLen = 1;
+        series.forEach(eq => { if (eq.length > maxLen) maxLen = eq.length; });
+        const xScale = cw / Math.max(maxLen - 1, 1);
+        const yScale = ch / range;
+
+        const toX = i => pad.left + i * xScale;
+        const toY = v => pad.top + ch - (v - minV) * yScale;
+
+        // Grid
+        ctx.strokeStyle = 'rgba(30, 41, 59, 0.6)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const v = minV + (range * i / 5);
+            const gy = toY(v);
+            ctx.beginPath();
+            ctx.moveTo(pad.left, gy);
+            ctx.lineTo(W - pad.right, gy);
+            ctx.stroke();
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px JetBrains Mono, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('$' + v.toFixed(0), W - pad.right + 4, gy + 4);
+        }
+
+        // Baseline
+        const baseY = toY(startEquity);
+        ctx.strokeStyle = '#64748b';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, baseY);
+        ctx.lineTo(W - pad.right, baseY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw each sim line
+        series.forEach((eq, i) => {
+            if (eq.length < 2) return;
+            const color = COLORS[i % COLORS.length];
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            eq.forEach((p, j) => {
+                const val = p.equity || p.value || 0;
+                const px = toX(j);
+                const py = toY(val);
+                if (j === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+
+            // End dot
+            const last = eq[eq.length - 1];
+            const lastVal = last.equity || last.value || 0;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(toX(eq.length - 1), toY(lastVal), 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    function buildSimCard(sim, idx) {
+        const color = COLORS[idx % COLORS.length];
+        const stats = sim.stats || {};
+        const equity = Number(sim.equity || 0);
+        const balance = Number(sim.balance || 0);
+        const pnl = stats.realized_pnl || 0;
+        const trades = stats.trades_total || 0;
+        const signals = stats.signals_acted || 0;
+        const signalsTotal = stats.signals_total || 0;
+
+        const card = document.createElement('div');
+        card.className = 'card sim-card';
+        card.style.borderTop = `3px solid ${color}`;
+        card.innerHTML = `
+            <h3 style="display:flex;align-items:center;gap:8px;">
+                <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;"></span>
+                ${sim.name || sim.id}
+            </h3>
+            <div class="muted" style="font-size:11px;margin-bottom:8px;">${sim.id}</div>
+            <div class="stats-row">
+                <div class="stat">
+                    <div class="val ${pnlClass(equity - (sim.starting_equity || 10000))}">${fmtUsd(equity)}</div>
+                    <div class="lbl">Equity</div>
+                </div>
+                <div class="stat">
+                    <div class="val ${pnlClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtUsd(pnl)}</div>
+                    <div class="lbl">Realized PnL</div>
+                </div>
+                <div class="stat">
+                    <div class="val blue">${trades}</div>
+                    <div class="lbl">Trades</div>
+                </div>
+                <div class="stat">
+                    <div class="val">${signals}/${signalsTotal}</div>
+                    <div class="lbl">Signals Acted</div>
+                </div>
+            </div>
+            <span class="position-badge ${sim.position > 0 ? 'long' : 'cash'}">
+                ${sim.position > 0 ? 'LONG @ $' + fmt(sim.avg_cost, 2) : 'CASH — $' + fmt(balance, 2)}
+            </span>
+        `;
+        return card;
+    }
+
+    function buildRankingTable(sims) {
+        const ranked = [...sims].sort((a, b) => {
+            const aEq = Number(a.equity || 0);
+            const bEq = Number(b.equity || 0);
+            return bEq - aEq;
+        });
+
+        const body = document.getElementById('ranking-body');
+        if (!ranked.length) {
+            body.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;padding:20px;">No simulations loaded</td></tr>';
+            return;
+        }
+
+        body.innerHTML = ranked.map((sim, i) => {
+            const stats = sim.stats || {};
+            const equity = Number(sim.equity || 0);
+            const startEq = sim.starting_equity || 10000;
+            const pnlPct = ((equity - startEq) / startEq * 100);
+            const pnl = stats.realized_pnl || 0;
+            const wins = stats.wins || 0;
+            const losses = stats.losses || 0;
+            const winRate = (wins + losses) > 0 ? (wins / (wins + losses) * 100).toFixed(1) : '0.0';
+            const trades = stats.trades_total || 0;
+            const color = pnlPct >= 0 ? 'green' : 'red';
+            const sign = pnlPct >= 0 ? '+' : '';
+
+            return `<tr>
+                <td style="font-weight:700;color:var(--text-primary);">${i + 1}</td>
+                <td style="color:var(--text-primary);">${sim.name || sim.id}</td>
+                <td class="muted">${sim.strategy_name || '--'}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">${fmtUsd(equity)}</td>
+                <td class="${color}" style="font-weight:600;">${sign}${pnlPct.toFixed(2)}%</td>
+                <td>${winRate}%</td>
+                <td class="green">${wins}</td>
+                <td class="red">${losses}</td>
+                <td>${trades}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function reloadSimulationPage() {
+        try {
+            const [summaryRes, signalsRes, tradesRes, statusRes] = await Promise.all([
+                fetch('/api/simulations'),
+                fetch('/api/simulations/recent-signals?limit=30'),
+                fetch('/api/simulations/recent-trades?limit=30'),
+                fetch('/api/bot/status')
+            ]);
+
+            const summaryData = await summaryRes.json();
+            const signalsData = await signalsRes.json();
+            const tradesData = await tradesRes.json();
+            const botStatus = await statusRes.json();
+
+            document.getElementById('last-update').innerText = summaryData.timestamp || '--';
+            document.getElementById('sim-active-feed').innerText = String(botStatus.data_active_source || '--').toUpperCase();
+            const lag = botStatus.data_primary_lag_seconds;
+            document.getElementById('sim-primary-lag').innerText = lag == null ? '--' : `${Number(lag).toFixed(0)}s`;
+
+            const sims = summaryData.simulations || [];
+
+            // Ranking table
+            buildRankingTable(sims);
+
+            // Equity chart
+            drawEquityChart(sims);
+
+            // Chart legend
+            const legend = document.getElementById('chartLegend');
+            let legendHtml = sims.map((s, i) => {
+                const color = COLORS[i % COLORS.length];
+                return `<span><span class="legend-line" style="background:${color};"></span> ${s.name || s.id}</span>`;
+            }).join('');
+            legendHtml += `<span><span class="legend-line" style="background:var(--text-muted);"></span> Baseline</span>`;
+            legend.innerHTML = legendHtml;
+
+            // Sim cards
+            const simCards = document.getElementById('sim-cards');
+            simCards.innerHTML = '';
+            sims.forEach((sim, i) => {
+                simCards.appendChild(buildSimCard(sim, i));
+            });
+
+            // Signals table
+            const signalsTable = document.getElementById('signals-table');
+            signalsTable.innerHTML = '';
+            (signalsData.events || []).forEach(event => {
+                const row = document.createElement('tr');
+                const sigClass = event.signal === 'BUY' ? 'side-buy' : event.signal === 'SELL' ? 'side-sell' : '';
+                row.innerHTML = `
+                    <td>${formatTs(event.ts)}</td>
+                    <td>${event.sim_id || '--'}</td>
+                    <td class="${sigClass}">${event.signal || '--'}</td>
+                    <td>${event.acted ? '<span class="green">Yes</span>' : '<span class="muted">No</span>'}</td>
+                    <td class="muted">${event.reason || '--'}</td>
+                    <td>${fmtUsd(event.price)}</td>
+                `;
+                signalsTable.appendChild(row);
+            });
+
+            // Trades table
+            const tradesTable = document.getElementById('trades-table');
+            tradesTable.innerHTML = '';
+            (tradesData.events || []).forEach(event => {
+                const row = document.createElement('tr');
+                const sideClass = event.side === 'BUY' ? 'side-buy' : 'side-sell';
+                const pnlVal = event.realized_pnl || 0;
+                row.innerHTML = `
+                    <td>${formatTs(event.ts)}</td>
+                    <td>${event.sim_id || '--'}</td>
+                    <td class="${sideClass}">${event.side || '--'}</td>
+                    <td>${event.qty || 0}</td>
+                    <td>${fmtUsd(event.price)}</td>
+                    <td class="${pnlClass(pnlVal)}">${pnlVal >= 0 ? '+' : ''}${fmtUsd(pnlVal)}</td>
+                `;
+                tradesTable.appendChild(row);
+            });
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        const summaryData = { simulations: [] };
+        drawEquityChart(summaryData.simulations);
+    });
+
+    setInterval(reloadSimulationPage, 5000);
+    reloadSimulationPage();
+</script>
+{% endblock %}

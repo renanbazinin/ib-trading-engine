@@ -1,0 +1,1564 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .stat-card { position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .stat-card.price::before { background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); }
+    .stat-card.rsi::before { background: linear-gradient(90deg, var(--accent-orange), var(--accent-yellow)); }
+    .stat-card.broker::before { background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan)); }
+    .stat-card.account::before { background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue)); }
+    .stat-card.positions::before { background: linear-gradient(90deg, var(--accent-yellow), var(--accent-red)); }
+
+    .card-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    .card-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 28px;
+        font-weight: 700;
+    }
+    .card-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .rsi-display { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+    .rsi-gauge {
+        flex: 1; height: 8px;
+        background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-yellow) 50%, var(--accent-red) 100%);
+        border-radius: 4px;
+        position: relative;
+    }
+    .rsi-needle {
+        position: absolute; top: -4px; width: 4px; height: 16px;
+        background: white; border-radius: 2px;
+        transition: left 0.5s ease;
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+    }
+    .rsi-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 24px; font-weight: 700;
+        min-width: 60px; text-align: right;
+    }
+    .rsi-value.oversold { color: var(--accent-green); }
+    .rsi-value.neutral { color: var(--accent-yellow); }
+    .rsi-value.overbought { color: var(--accent-red); }
+    .rsi-zones { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+    .bb-values { display: flex; gap: 12px; margin-top: 8px; }
+    .bb-item { font-size: 12px; }
+    .bb-item .label { color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
+    .bb-item .val { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; }
+    .bb-item.upper .val { color: var(--accent-red); }
+    .bb-item.mid .val { color: var(--accent-yellow); }
+    .bb-item.lower .val { color: var(--accent-green); }
+
+    .chart-container { width: 100%; height: 320px; position: relative; }
+    canvas#live-price-chart { width: 100%; height: 100%; border-radius: var(--radius-sm); cursor: crosshair; }
+    .chart-detail-panel {
+        font-size: 11px; line-height: 1.55; color: var(--text-secondary);
+        font-family: 'JetBrains Mono', monospace;
+        padding: 10px 12px; margin-bottom: 8px;
+        background: rgba(15, 23, 42, 0.45); border-radius: var(--radius-sm);
+        border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+    .chart-detail-panel strong { color: var(--text-primary); font-weight: 600; }
+    .chart-tooltip {
+        position: absolute; z-index: 20; display: none; pointer-events: none;
+        background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(59, 130, 246, 0.4);
+        border-radius: 8px; padding: 10px 12px; font-size: 11px;
+        font-family: 'JetBrains Mono', monospace; color: #e2e8f0; max-width: 260px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); line-height: 1.45;
+    }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 14px 20px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
+    .chart-legend span::before {
+        content: ''; display: inline-block; width: 12px; height: 3px;
+        margin-right: 5px; border-radius: 2px; vertical-align: middle;
+    }
+    .chart-legend .leg-price::before { background: #3b82f6; }
+    .chart-legend .leg-upper::before { background: rgba(239, 68, 68, 0.5); }
+    .chart-legend .leg-mid::before { background: rgba(245, 158, 11, 0.5); }
+    .chart-legend .leg-lower::before { background: rgba(16, 185, 129, 0.5); }
+    .chart-legend .leg-buy::before {
+        width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
+        border-bottom: 8px solid rgba(16, 185, 129, 0.95); border-radius: 0; background: none !important;
+    }
+    .chart-legend .leg-sell::before {
+        width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
+        border-top: 8px solid rgba(239, 68, 68, 0.95); border-radius: 0; background: none !important;
+    }
+
+    .log-console {
+        background: #050810;
+        border: 1px solid rgba(30, 41, 59, 0.5);
+        border-radius: var(--radius-sm);
+        padding: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        line-height: 1.7;
+    }
+    .log-line { white-space: pre-wrap; word-break: break-all; }
+    .log-line .log-time { color: var(--text-muted); }
+    .log-line.level-INFO .log-level { color: var(--accent-cyan); }
+    .log-line.level-SUCCESS .log-level { color: var(--accent-green); }
+    .log-line.level-WARN .log-level { color: var(--accent-yellow); }
+    .log-line.level-ERROR .log-level { color: var(--accent-red); }
+    .log-line.level-TRADE .log-level { color: var(--accent-purple); }
+    .log-line.level-DATA .log-level { color: #60a5fa; }
+    .log-line.level-ERROR { color: rgba(239, 68, 68, 0.85); }
+    .log-line.level-WARN { color: rgba(245, 158, 11, 0.85); }
+    .log-line.level-TRADE { color: rgba(139, 92, 246, 0.85); }
+    .log-line.level-DATA { color: rgba(96, 165, 250, 0.85); }
+
+    .log-filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+    .log-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .log-filter-btn {
+        font-size: 11px; padding: 3px 10px; border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted); cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .log-filter-btn.active {
+        border-color: currentColor;
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .log-filter-btn[data-level="INFO"].active { color: var(--accent-cyan); }
+    .log-filter-btn[data-level="SUCCESS"].active { color: var(--accent-green); }
+    .log-filter-btn[data-level="WARN"].active { color: var(--accent-yellow); }
+    .log-filter-btn[data-level="ERROR"].active { color: var(--accent-red); }
+    .log-filter-btn[data-level="TRADE"].active { color: var(--accent-purple); }
+    .log-filter-btn[data-level="DATA"].active { color: #60a5fa; }
+    .log-filter-chip {
+        font-size: 11px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        padding: 4px 8px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .log-filter-chip input,
+    .log-filter-chip select {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(15, 23, 42, 0.7);
+        color: var(--text-primary);
+        border-radius: 6px;
+        font-size: 11px;
+        padding: 4px 6px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .log-action-btn {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .log-action-btn:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.2); }
+
+    .near-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 8px;
+        font-size: 11px; font-weight: 600;
+    }
+    .near-badge.buy { background: var(--glow-green); color: var(--accent-green); }
+    .near-badge.sell { background: var(--glow-red); color: var(--accent-red); }
+
+    .mode-badge {
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(148, 163, 184, 0.08);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+    }
+    .mode-badge.live { color: var(--accent-red); border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.12); }
+    .mode-badge.paper { color: var(--accent-green); border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.12); }
+
+    .info-panel {
+        margin-top: 12px;
+        padding: 12px;
+        border: 1px solid rgba(51, 65, 85, 0.75);
+        border-radius: var(--radius-sm);
+        background: rgba(15, 23, 42, 0.45);
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px 14px;
+    }
+    .info-item .label {
+        display: block;
+        color: var(--text-muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        margin-bottom: 2px;
+    }
+    .info-item .value { font-family: 'JetBrains Mono', monospace; color: var(--text-primary); }
+    .info-item .value.ok { color: var(--accent-green); }
+    .info-item .value.warn { color: var(--accent-yellow); }
+    .info-item .value.off { color: var(--accent-red); }
+    .settlement-lock-panel {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        border-radius: var(--radius-sm);
+        background: rgba(245, 158, 11, 0.07);
+    }
+    .settlement-lock-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: var(--accent-yellow);
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .settlement-lock-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        color: var(--text-secondary);
+        font-size: 11px;
+        margin-bottom: 8px;
+    }
+    .settlement-lock-list {
+        display: grid;
+        gap: 6px;
+    }
+    .settlement-lock-row {
+        padding: 7px 8px;
+        border: 1px solid rgba(51, 65, 85, 0.65);
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.42);
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1.45;
+    }
+    .settlement-lock-row strong { color: var(--text-primary); }
+    .settlement-lock-row .muted-line { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+    .slot-badge {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(148, 163, 184, 0.08);
+    }
+    .slot-badge.buy { color: var(--accent-green); border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.12); }
+    .slot-badge.sell { color: var(--accent-red); border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.12); }
+    .slot-badge.mixed { color: var(--accent-yellow); border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); }
+    .slot-badge.hold { color: var(--text-muted); }
+    .slot-meter {
+        height: 8px;
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(51, 65, 85, 0.75);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 8px 0;
+    }
+    .slot-meter-fill { height: 100%; background: linear-gradient(90deg, var(--accent-green), var(--accent-yellow)); }
+    .slot-plan-line { font-size: 12px; color: var(--text-secondary); margin-top: 5px; line-height: 1.45; }
+    .summary-table { width: 100%; font-size: 12px; }
+    .summary-table td { white-space: normal; padding: 7px 8px; }
+    .summary-table td:first-child { color: var(--text-muted); font-family: 'Inter', sans-serif; }
+    details.raw-details { margin-top: 10px; }
+    details.raw-details summary { cursor: pointer; color: var(--text-muted); font-size: 11px; margin-bottom: 6px; }
+</style>
+
+<div class="card" style="margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h2 style="margin-bottom: 4px;">Live Trading Controls</h2>
+            <p class="muted" style="margin-top: 0; font-size: 12px;">Enable or disable real order submission. Simulations always run.</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button id="toggle-btn" class="btn primary">Turn ON Trading</button>
+            <span id="mode-badge" class="mode-badge">MODE --</span>
+            <span class="muted" style="font-size: 12px;">Strategy: <span id="strategy-name" style="color:var(--accent-purple);font-weight:600;">--</span></span>
+            <span class="muted" style="font-size: 12px;">Feed: <span id="active-source" style="color:var(--accent-cyan);font-weight:600;">--</span></span>
+            <span class="muted" style="font-size: 12px;">Lag: <span id="primary-lag" style="font-weight:600;">--</span></span>
+        </div>
+    </div>
+    <div id="guard-note" class="muted" style="margin-top: 8px; font-size: 12px;"></div>
+    <div id="readiness-panel" class="info-panel">Loading readiness details...</div>
+</div>
+
+<div class="grid" style="margin-bottom: 16px;">
+    <div class="card stat-card price">
+        <div class="card-title">Current Price</div>
+        <div class="card-value" id="live-price">--</div>
+        <div class="card-sub">Symbol: <span id="chart-symbol" style="color:var(--accent-cyan);font-weight:600;">--</span></div>
+        <div class="card-sub">Updated: <span id="live-price-time">--</span></div>
+        <div class="card-sub">Signal: <span id="last-signal" style="font-weight:600;">--</span></div>
+        <div style="margin-top: 6px;" id="near-flags-container"></div>
+    </div>
+
+    <div class="card stat-card rsi">
+        <div class="card-title">RSI / Indicators</div>
+        <div class="rsi-display">
+            <div style="flex:1">
+                <div class="rsi-gauge">
+                    <div class="rsi-needle" id="rsiNeedle" style="left:50%"></div>
+                </div>
+                <div class="rsi-zones">
+                    <span>Oversold &lt;30</span>
+                    <span>Neutral</span>
+                    <span>Overbought &gt;70</span>
+                </div>
+            </div>
+            <div class="rsi-value neutral" id="rsiValue">--</div>
+        </div>
+        <div class="bb-values">
+            <div class="bb-item upper"><div class="label">BB Upper</div><div class="val" id="bbUpper">--</div></div>
+            <div class="bb-item mid"><div class="label">BB Mid</div><div class="val" id="bbMid">--</div></div>
+            <div class="bb-item lower"><div class="label">BB Lower</div><div class="val" id="bbLower">--</div></div>
+        </div>
+        <div class="bb-values" style="margin-top: 4px;">
+            <div class="bb-item"><div class="label">SMI</div><div class="val" id="smiValue" style="color:var(--accent-purple);">--</div></div>
+            <div class="bb-item"><div class="label">SMI Signal</div><div class="val" id="smiSignal" style="color:var(--accent-orange);">--</div></div>
+            <div class="bb-item"><div class="label">Trend SMA</div><div class="val" id="trendSma" style="color:var(--accent-cyan);">--</div></div>
+        </div>
+    </div>
+
+    <div class="card stat-card broker">
+        <div class="card-title">Broker Connection</div>
+        <div class="card-value" style="font-size: 20px;" id="broker-conn-state">--</div>
+        <div class="card-sub">API: <span id="broker-api-url">--</span></div>
+        <div class="card-sub">Account: <span id="broker-account-id">--</span></div>
+        <div class="card-sub">Tickle: <span id="broker-tickle-status">--</span></div>
+        <div class="card-sub">Last heartbeat: <span id="broker-last-heartbeat">--</span></div>
+        <div class="card-sub">Tickle failures: <span id="broker-tickle-failures">0</span></div>
+        <div class="card-sub" id="broker-error-row" style="display:none;">Error: <span id="broker-last-error" style="color:var(--accent-red);">--</span></div>
+        <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button id="broker-reauth-btn" class="btn secondary" type="button">Try Broker Auth</button>
+            <button id="telegram-test-btn" class="btn secondary" type="button">Send Telegram Test</button>
+            <span id="broker-reauth-result" class="muted" style="font-size: 11px;"></span>
+            <span id="telegram-test-result" class="muted" style="font-size: 11px;"></span>
+        </div>
+    </div>
+
+    <div class="card stat-card broker">
+        <div class="card-title">Trading Session</div>
+        <div class="card-value" style="font-size: 20px;" id="market-session-state">--</div>
+        <div class="card-sub">Session: <span id="market-session-name">--</span></div>
+        <div class="card-sub">ET now: <span id="market-session-now">--</span></div>
+        <div class="card-sub">Next open: <span id="market-session-next-open">--</span></div>
+        <div class="card-sub">Next close: <span id="market-session-next-close">--</span></div>
+    </div>
+
+    <div class="card stat-card account">
+        <div class="card-title">Live Account</div>
+        <div id="account-data" style="max-height:220px; overflow:auto;">Loading...</div>
+    </div>
+
+    <div class="card stat-card positions">
+        <div class="card-title">Live Positions</div>
+        <div id="positions-data" style="max-height:220px; overflow:auto;">Loading...</div>
+    </div>
+
+    <div class="card stat-card positions">
+        <div class="card-title">Slot Outlook</div>
+        <div id="slot-outlook-data">Loading...</div>
+    </div>
+</div>
+
+<div class="card section-wide" style="margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin:0;">Price &amp; Bollinger Bands</h3>
+        <span class="muted" style="font-size:12px;" id="candleCount">0 candles</span>
+    </div>
+    <div id="chart-detail-panel" class="chart-detail-panel muted" style="display:none;"></div>
+    <div class="chart-container">
+        <canvas id="live-price-chart"></canvas>
+        <div id="chart-tooltip" class="chart-tooltip"></div>
+    </div>
+    <div class="chart-legend">
+        <span class="leg-price">Close price</span>
+        <span class="leg-upper">BB upper</span>
+        <span class="leg-mid">BB mid (SMA)</span>
+        <span class="leg-lower">BB lower</span>
+        <span class="leg-buy">BUY signal bar</span>
+        <span class="leg-sell">SELL signal bar</span>
+    </div>
+    <p class="muted" style="font-size:11px;margin:8px 0 0;">X-axis: bar open time (your browser locale). Hover the chart for OHLC, volume, RSI, and BB on that bar.</p>
+</div>
+
+<div class="grid" style="margin-bottom: 16px;">
+    <div class="card">
+        <div class="card-title">Recent Orders</div>
+        <div id="orders-summary" class="card-sub" style="margin-bottom:8px;">--</div>
+        <div id="orders-data" class="mono" style="max-height:220px;">Loading...</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Recent Executions / Fees</div>
+        <div id="trades-summary" class="card-sub" style="margin-bottom:8px;">--</div>
+        <div id="trades-data" class="mono" style="max-height:220px;">Loading...</div>
+    </div>
+</div>
+
+<div class="card section-wide">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+        <h3 style="margin: 0;">Live Logs</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="logAutoScroll" checked style="accent-color: var(--accent-blue);"> Auto-scroll
+            </label>
+            <span class="muted" style="font-size:12px;" id="logCount">0</span>
+        </div>
+    </div>
+    <div class="log-filter-row" id="logFilterActions">
+        <button type="button" class="log-action-btn" data-action="all">All levels</button>
+        <button type="button" class="log-action-btn" data-action="none">No levels</button>
+        <button type="button" class="log-action-btn" data-action="errors">Errors only</button>
+        <button type="button" class="log-action-btn" data-action="trades">Trades only</button>
+    </div>
+    <div class="log-filter-bar" id="logFilterBar">
+        <button class="log-filter-btn active" data-level="INFO">Info</button>
+        <button class="log-filter-btn active" data-level="SUCCESS">Success</button>
+        <button class="log-filter-btn active" data-level="WARN">Warn</button>
+        <button class="log-filter-btn active" data-level="ERROR">Error</button>
+        <button class="log-filter-btn active" data-level="TRADE">Trade</button>
+        <button class="log-filter-btn active" data-level="DATA">Data</button>
+    </div>
+    <div class="log-filter-row">
+        <label class="log-filter-chip">Event
+            <select id="logEventTypeFilter">
+                <option value="">All events</option>
+            </select>
+        </label>
+        <label class="log-filter-chip">Search
+            <input id="logSearchFilter" type="text" placeholder="message contains..." autocomplete="off">
+        </label>
+    </div>
+    <div class="log-console" id="logConsole">
+        <div style="text-align: center; padding: 30px; color: var(--text-muted);">Waiting for logs...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let cachedCandleData = [];
+    let chartRenderState = null;
+
+    function fmtVolume(v) {
+        if (!Number.isFinite(v)) return '--';
+        if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+        if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+        if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+        return String(Math.round(v));
+    }
+
+    function formatAxisTime(iso, opts) {
+        opts = opts || {};
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso).slice(5, 16).replace('T', ' ');
+        if (opts.includeDate) {
+            return d.toLocaleString(undefined, {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+            });
+        }
+        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
+    function axisNeedsDate(firstIso, lastIso) {
+        const a = new Date(firstIso);
+        const b = new Date(lastIso);
+        if (isNaN(a.getTime()) || isNaN(b.getTime())) return false;
+        if (a.toDateString() !== b.toDateString()) return true;
+        return (b - a) > 36 * 3600 * 1000;
+    }
+    const LOG_LEVELS = ['INFO', 'SUCCESS', 'WARN', 'ERROR', 'TRADE', 'DATA'];
+    let cachedLogData = [];
+    let lastLogPayloadDigest = '';
+    const logFilters = {
+        levels: new Set(LOG_LEVELS),
+        eventType: '',
+        query: '',
+    };
+
+    function formatTimestamp(ts) {
+        if (!ts) return '--';
+        const date = new Date(ts);
+        if (Number.isNaN(date.getTime())) return String(ts);
+        return date.toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    function formatPrice(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return '--';
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    }
+
+    function formatEtTimestamp(value) {
+        if (!value) return '--';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleString('en-US', {
+            timeZone: 'America/New_York',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }) + ' ET';
+    }
+
+    function formatRelativeTimestamp(value) {
+        if (!value) return '--';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        const ageSeconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+        const ageText = ageSeconds < 90
+            ? `${ageSeconds}s ago`
+            : ageSeconds < 5400
+                ? `${Math.round(ageSeconds / 60)}m ago`
+                : `${Math.round(ageSeconds / 3600)}h ago`;
+        return `${date.toLocaleTimeString('en-US', { hour12: false })} (${ageText})`;
+    }
+
+    function formatMoney(value, currency) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return '--';
+        return `${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency || 'USD'}`;
+    }
+
+    function accountMetric(account, key) {
+        const entry = account?.[key];
+        if (!entry || typeof entry !== 'object') return null;
+        return entry;
+    }
+
+    function renderAccountSummary(account) {
+        const rows = [
+            ['Net liquidation', accountMetric(account, 'NetLiquidation')],
+            ['Buying power', accountMetric(account, 'BuyingPower')],
+            ['Available funds', accountMetric(account, 'AvailableFunds')],
+            ['Cash', accountMetric(account, 'TotalCashValue')],
+            ['Settled cash', accountMetric(account, 'SettledCash')],
+        ].filter(([, entry]) => entry);
+
+        if (!rows.length) {
+            return '<div class="muted" style="font-size:12px;">Waiting for account data...</div>';
+        }
+
+        const tableRows = rows.map(([label, entry]) => (
+            `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(formatMoney(entry.value, entry.currency))}</td></tr>`
+        )).join('');
+        return `<table class="summary-table">${tableRows}</table>` +
+            `<details class="raw-details"><summary>Raw account JSON</summary><div class="mono">${escapeHtml(JSON.stringify(account, null, 2))}</div></details>`;
+    }
+
+    function renderPositionsSummary(positions) {
+        if (!positions || !positions.length) {
+            return '<div class="muted" style="font-size:12px;">No open positions reported.</div>';
+        }
+        const rows = positions.map((pos) => (
+            `<tr><td>${escapeHtml(pos.symbol || '--')}</td><td>${escapeHtml(pos.position ?? '--')}</td><td>${escapeHtml(formatPrice(pos.avgCost))}</td></tr>`
+        )).join('');
+        return '<table class="summary-table"><thead><tr><th>Symbol</th><th>Qty</th><th>Avg Cost</th></tr></thead><tbody>' +
+            rows +
+            '</tbody></table>' +
+            `<details class="raw-details"><summary>Raw positions JSON</summary><div class="mono">${escapeHtml(JSON.stringify(positions, null, 2))}</div></details>`;
+    }
+
+    function renderPlanLine(label, plan) {
+        if (!plan || typeof plan !== 'object') {
+            return `<div class="slot-plan-line">${escapeHtml(label)}: --</div>`;
+        }
+        if (plan.allowed) {
+            return `<div class="slot-plan-line">${escapeHtml(label)}: allowed · qty ${escapeHtml(plan.quantity ?? '--')} · est ${escapeHtml(formatMoney(plan.notional))}</div>`;
+        }
+        return `<div class="slot-plan-line">${escapeHtml(label)}: blocked · ${escapeHtml(plan.reason || '--')}</div>`;
+    }
+
+    function renderSlotOutlook(status) {
+        const outlook = status.slot_outlook || {};
+        const buyPlan = outlook.buy || status.live_buy_plan || {};
+        const sellPlan = outlook.sell || status.live_sell_plan || {};
+        const slots = outlook.slots || status.live_position_slots || '--';
+        const used = Number(outlook.slots_used);
+        const maxSlots = Number(outlook.max_slots);
+        const fillPct = Number.isFinite(used) && Number.isFinite(maxSlots) && maxSlots > 0
+            ? Math.max(0, Math.min(100, (used / maxSlots) * 100))
+            : 0;
+        const nextAction = String(outlook.next_action || 'HOLD').toUpperCase();
+        const badgeClass = nextAction === 'BUY'
+            ? 'buy'
+            : nextAction === 'SELL'
+                ? 'sell'
+                : nextAction === 'BUY_OR_SELL'
+                    ? 'mixed'
+                    : 'hold';
+        const label = nextAction === 'BUY_OR_SELL' ? 'BUY / SELL' : nextAction;
+        const remaining = outlook.remaining_slots ?? '--';
+        const position = outlook.position_state || status.position_state || '--';
+        const exposure = status.live_symbol_exposure == null ? '--' : formatMoney(status.live_symbol_exposure);
+        const slotNotional = buyPlan.slot_notional == null ? '--' : formatMoney(buyPlan.slot_notional);
+        const explanation = outlook.explanation || 'Waiting for slot estimate.';
+
+        return `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div>
+                    <div class="card-value" style="font-size:24px;">${escapeHtml(slots)}</div>
+                    <div class="card-sub">Position: ${escapeHtml(position)} · remaining: ${escapeHtml(remaining)}</div>
+                </div>
+                <span class="slot-badge ${badgeClass}">${escapeHtml(label)}</span>
+            </div>
+            <div class="slot-meter"><div class="slot-meter-fill" style="width:${fillPct.toFixed(0)}%;"></div></div>
+            <div class="slot-plan-line">Slot size: ${escapeHtml(slotNotional)} · Exposure: ${escapeHtml(exposure)}</div>
+            ${renderPlanLine('Next BUY est', buyPlan)}
+            ${renderPlanLine('Exit SELL est', sellPlan)}
+            <div class="slot-plan-line" style="color:var(--text-muted);">${escapeHtml(explanation)}</div>
+        `;
+    }
+
+    function statusClass(ok, warn) {
+        if (ok) return 'ok';
+        if (warn) return 'warn';
+        return 'off';
+    }
+
+    function renderReadinessPanel(status, broker) {
+        const pauseReasons = status.pause_reasons || [];
+        const pending = status.pending_signal;
+        const feedLag = status.data_active_lag_seconds == null ? '--' : `${Number(status.data_active_lag_seconds).toFixed(0)}s`;
+        const dataError = status.data_last_error || 'none';
+        const brokerOk = Boolean(broker.connected);
+        const sessionOk = Boolean(status.market_session_open);
+        const feedOk = !Boolean(status.data_active_is_stale);
+        const startupOk = Boolean(status.startup_ready ?? status.indicators_ready);
+        const fullIndicatorsOk = Boolean(status.indicators_fully_ready);
+        const loadedBars = Number(status.indicator_bars_loaded || 0);
+        const startupBars = Number(status.live_startup_min_bars || 0);
+        const fullBars = Number(status.indicator_min_bars_required || 0);
+        const manualOn = Boolean(status.is_live_active);
+        const ready = Boolean(status.ready_to_trade);
+        const unsettled = Number(status.unsettled_sale_proceeds || 0);
+        const settlementDate = status.next_estimated_settlement || 'pending settlement';
+        const items = [
+            ['Ready to trade', ready ? 'YES' : 'NO', statusClass(ready, pauseReasons.length > 0)],
+            ['Manual trading', manualOn ? 'ON' : 'OFF', statusClass(manualOn, false)],
+            ['Broker auth', brokerOk ? 'CONNECTED' : 'DISCONNECTED', statusClass(brokerOk, false)],
+            ['Session', sessionOk ? `OPEN (${status.market_session || '--'})` : `CLOSED (${status.market_session || '--'})`, statusClass(sessionOk, false)],
+            ['Feed', feedOk ? `FRESH (${feedLag})` : `STALE (${feedLag})`, statusClass(feedOk, false)],
+            ['Startup warm-up', startupOk ? `READY (${loadedBars}/${startupBars})` : `WARMING (${loadedBars}/${startupBars})`, statusClass(startupOk, true)],
+            ['Full indicators', fullIndicatorsOk ? `READY (${loadedBars}/${fullBars})` : `WARMING (${loadedBars}/${fullBars})`, statusClass(fullIndicatorsOk, true)],
+            ['Pending signal', pending ? `${pending.action || '--'} retry queued` : 'none', pending ? 'warn' : 'ok'],
+            ['Settlement guard', unsettled > 0 ? `${formatMoney(unsettled)} unsettled until ${settlementDate}` : 'clear', unsettled > 0 ? 'warn' : 'ok'],
+            ['Last data error', dataError, dataError === 'none' ? 'ok' : 'warn'],
+        ];
+        const body = items.map(([label, value, klass]) => (
+            `<div class="info-item"><span class="label">${escapeHtml(label)}</span><span class="value ${klass}">${escapeHtml(value)}</span></div>`
+        )).join('');
+        const reasonLine = pauseReasons.length
+            ? `<div style="margin-top:10px;color:var(--accent-yellow);">Paused because: ${escapeHtml(pauseReasons.join(' | '))}</div>`
+            : '';
+        return `<div class="info-grid">${body}</div>${renderSettlementLockPanel(status)}${reasonLine}`;
+    }
+
+    function renderSettlementLockPanel(status) {
+        const locked = Number(status.unsettled_sale_proceeds || 0);
+        if (!Number.isFinite(locked) || locked <= 0) return '';
+
+        const fills = Array.isArray(status.unsettled_sell_fills) ? status.unsettled_sell_fills : [];
+        const settlementDate = status.next_estimated_settlement || 'pending settlement';
+        const releaseAt = status.next_release_at ? formatEtTimestamp(status.next_release_at) : 'pending release';
+        const rows = fills.length
+            ? fills.map((fill) => {
+                const symbol = fill.symbol || '--';
+                const side = fill.side || 'SELL';
+                const quantity = fill.quantity ?? '--';
+                const proceeds = formatMoney(fill.proceeds);
+                const tradeTime = fill.trade_time ? formatEtTimestamp(fill.trade_time) : '--';
+                const fillSettlement = fill.settlement_date || fill.estimated_settlement || settlementDate;
+                const fillRelease = fill.release_at ? formatEtTimestamp(fill.release_at) : releaseAt;
+                const id = fill.execution_id || fill.order_id || '--';
+                return `
+                    <div class="settlement-lock-row">
+                        <strong>${escapeHtml(symbol)}</strong> ${escapeHtml(side)} ${escapeHtml(quantity)} locked ${escapeHtml(proceeds)}
+                        <div class="muted-line">Sold: ${escapeHtml(tradeTime)} · settles: ${escapeHtml(fillSettlement)} · buy cap releases: ${escapeHtml(fillRelease)} · id: ${escapeHtml(id)}</div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="settlement-lock-row"><strong>Recent SELL proceeds</strong><div class="muted-line">Fill details are pending, but the buy cap is reduced by the locked amount.</div></div>';
+
+        return `
+            <div class="settlement-lock-panel">
+                <div class="settlement-lock-title">
+                    <span>Settlement lock details</span>
+                    <span>${escapeHtml(formatMoney(locked))} locked</span>
+                </div>
+                <div class="settlement-lock-meta">
+                    <span>What is locked: recent stock SELL proceeds</span>
+                    <span>Settlement date: ${escapeHtml(settlementDate)}</span>
+                    <span>Buy cap releases: ${escapeHtml(releaseAt)}</span>
+                </div>
+                <div class="settlement-lock-list">${rows}</div>
+            </div>
+        `;
+    }
+
+    function parseMoney(value) {
+        if (value == null) return 0;
+        const match = String(value).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+        return match ? Number(match[0]) : 0;
+    }
+
+    function summarizeTrades(trades) {
+        const totalCommission = (trades || []).reduce((sum, trade) => sum + parseMoney(trade.commission), 0);
+        const fills = (trades || []).length;
+        return `${fills} fills · commission ${totalCommission.toFixed(2)} USD`;
+    }
+
+    function summarizeOrders(orders) {
+        const counts = {};
+        (orders || []).forEach((order) => {
+            const status = order.status || order.order_ccp_status || 'unknown';
+            counts[status] = (counts[status] || 0) + 1;
+        });
+        const parts = Object.entries(counts).map(([status, count]) => `${status}: ${count}`);
+        return parts.length ? parts.join(' · ') : 'No recent orders';
+    }
+
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function buildLogPayloadDigest(logs) {
+        if (!logs || !logs.length) return '0';
+        const tail = logs.slice(-5).map((entry) => {
+            const time = entry?.time || '';
+            const level = entry?.level || '';
+            const eventType = entry?.event_type || '';
+            const msg = entry?.message || '';
+            return `${time}|${level}|${eventType}|${msg}`;
+        }).join('||');
+        return `${logs.length}:${tail}`;
+    }
+
+    function debounce(fn, waitMs) {
+        let timerId = null;
+        return (...args) => {
+            if (timerId) clearTimeout(timerId);
+            timerId = setTimeout(() => fn(...args), waitMs);
+        };
+    }
+
+    function buildLogsUrl() {
+        const params = new URLSearchParams();
+        params.set('limit', '300');
+        if (logFilters.levels.size > 0 && logFilters.levels.size < LOG_LEVELS.length) {
+            params.set('level', [...logFilters.levels].join(','));
+        }
+        if (logFilters.eventType) params.set('event_type', logFilters.eventType);
+        if (logFilters.query) params.set('q', logFilters.query);
+        return `/api/live/logs?${params.toString()}`;
+    }
+
+    function getFilteredLogs(logs) {
+        return logs.filter((entry) => {
+            const level = String(entry.level || 'INFO').toUpperCase();
+            if (!logFilters.levels.has(level)) return false;
+
+            if (logFilters.eventType) {
+                const entryEventType = String(entry.event_type || '').toLowerCase();
+                if (entryEventType !== logFilters.eventType) return false;
+            }
+
+            if (logFilters.query) {
+                const haystack = `${entry.message || ''} ${entry.event_type || ''}`.toLowerCase();
+                if (!haystack.includes(logFilters.query)) return false;
+            }
+
+            return true;
+        });
+    }
+
+    function syncLogLevelButtons() {
+        document.querySelectorAll('#logFilterBar .log-filter-btn').forEach((btn) => {
+            const level = btn.dataset.level;
+            btn.classList.toggle('active', logFilters.levels.has(level));
+        });
+    }
+
+    function setLevelPreset(levels) {
+        logFilters.levels = new Set(levels);
+        syncLogLevelButtons();
+    }
+
+    function onLogLevelToggle(btn) {
+        const level = btn.dataset.level;
+        if (!level) return;
+        if (logFilters.levels.has(level)) logFilters.levels.delete(level);
+        else logFilters.levels.add(level);
+        syncLogLevelButtons();
+        renderLogs();
+        reloadLivePage();
+    }
+
+    function applyQuickLogFilter(action) {
+        if (action === 'all') setLevelPreset(LOG_LEVELS);
+        else if (action === 'none') setLevelPreset([]);
+        else if (action === 'errors') setLevelPreset(['ERROR', 'WARN']);
+        else if (action === 'trades') setLevelPreset(['TRADE']);
+        else return;
+        renderLogs();
+        reloadLivePage();
+    }
+
+    function updateEventTypeOptions(eventTypes) {
+        const selectEl = document.getElementById('logEventTypeFilter');
+        if (!selectEl) return;
+
+        const normalized = [...new Set((eventTypes || []).map(v => String(v || '').trim()).filter(Boolean))].sort();
+        const existing = new Set(Array.from(selectEl.options).map(opt => opt.value));
+        const next = new Set(['', ...normalized]);
+        let changed = existing.size !== next.size;
+        if (!changed) {
+            for (const value of next) {
+                if (!existing.has(value)) {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if (!changed) return;
+
+        const selected = logFilters.eventType;
+        selectEl.innerHTML = '';
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'All events';
+        selectEl.appendChild(allOption);
+        normalized.forEach((value) => {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = value;
+            selectEl.appendChild(opt);
+        });
+        if (selected && normalized.includes(selected)) selectEl.value = selected;
+        else {
+            selectEl.value = '';
+            logFilters.eventType = '';
+        }
+    }
+
+    function isNearLogBottom(el, threshold = 24) {
+        return (el.scrollHeight - (el.scrollTop + el.clientHeight)) <= threshold;
+    }
+
+    function drawPriceChart(candles) {
+        const canvas = document.getElementById('live-price-chart');
+        const detailEl = document.getElementById('chart-detail-panel');
+        const tipEl = document.getElementById('chart-tooltip');
+        if (!canvas) return;
+        if (tipEl) tipEl.style.display = 'none';
+
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.clientWidth || 1000;
+        const height = canvas.clientHeight || 320;
+
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        chartRenderState = null;
+
+        if (!candles || candles.length < 2) {
+            if (detailEl) detailEl.style.display = 'none';
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.fillText('Waiting for candle data...', 16, 32);
+            return;
+        }
+
+        const PAD = { top: 22, right: 72, bottom: 48, left: 12 };
+        const plotW = width - PAD.left - PAD.right;
+        const plotH = height - PAD.top - PAD.bottom;
+        const plotBottom = PAD.top + plotH;
+
+        const toFinite = (value) => {
+            if (value === null || value === undefined || value === '') return NaN;
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : NaN;
+        };
+
+        const opens = candles.map(c => toFinite(c.open));
+        const highs = candles.map(c => toFinite(c.high));
+        const lows = candles.map(c => toFinite(c.low));
+        const closes = candles.map(c => toFinite(c.close));
+        const bbUp = candles.map(c => toFinite(c.indicators?.bb_upper));
+        const bbMid = candles.map(c => toFinite(c.indicators?.bb_mid));
+        const bbLow = candles.map(c => toFinite(c.indicators?.bb_lower));
+
+        const allVals = [];
+        opens.forEach(v => { if (Number.isFinite(v)) allVals.push(v); });
+        highs.forEach(v => { if (Number.isFinite(v)) allVals.push(v); });
+        lows.forEach(v => { if (Number.isFinite(v)) allVals.push(v); });
+        closes.forEach(v => { if (Number.isFinite(v)) allVals.push(v); });
+        bbUp.forEach(v => { if (Number.isFinite(v)) allVals.push(v); });
+        bbLow.forEach(v => { if (Number.isFinite(v)) allVals.push(v); });
+
+        if (allVals.length < 2) return;
+
+        const sorted = [...allVals].sort((a, b) => a - b);
+        const q = (p) => {
+            if (!sorted.length) return null;
+            const idx = Math.max(0, Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * p)));
+            return sorted[idx];
+        };
+        let minP = q(0.02);
+        let maxP = q(0.98);
+        if (!Number.isFinite(minP) || !Number.isFinite(maxP) || maxP <= minP) {
+            minP = sorted[0];
+            maxP = sorted[sorted.length - 1];
+        }
+        const pad = Math.max((maxP - minP) * 0.06, (maxP || 1) * 0.001);
+        minP -= pad;
+        maxP += pad;
+        const range = Math.max(1e-9, maxP - minP);
+
+        const x = i => PAD.left + (i / (candles.length - 1)) * plotW;
+        const y = p => PAD.top + (1 - (p - minP) / range) * plotH;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(30, 41, 59, 0.6)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const gy = PAD.top + (i / 4) * plotH;
+            ctx.beginPath();
+            ctx.moveTo(PAD.left, gy);
+            ctx.lineTo(width - PAD.right, gy);
+            ctx.stroke();
+            const price = maxP - (i / 4) * range;
+            ctx.fillStyle = 'rgba(100, 116, 139, 0.7)';
+            ctx.font = '11px JetBrains Mono, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(formatPrice(price), width - PAD.right + 6, gy + 4);
+        }
+
+        // BB band fill (shaded area)
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < candles.length; i++) {
+            if (!Number.isFinite(bbUp[i])) continue;
+            if (!started) { ctx.moveTo(x(i), y(bbUp[i])); started = true; }
+            else ctx.lineTo(x(i), y(bbUp[i]));
+        }
+        for (let i = candles.length - 1; i >= 0; i--) {
+            if (!Number.isFinite(bbLow[i])) continue;
+            ctx.lineTo(x(i), y(bbLow[i]));
+        }
+        if (started) {
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(139, 92, 246, 0.06)';
+            ctx.fill();
+        }
+
+        const drawDashed = (values, color) => {
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            let s = false;
+            values.forEach((v, i) => {
+                if (!Number.isFinite(v)) return;
+                if (!s) { ctx.moveTo(x(i), y(v)); s = true; }
+                else ctx.lineTo(x(i), y(v));
+            });
+            if (s) ctx.stroke();
+            ctx.setLineDash([]);
+        };
+
+        drawDashed(bbUp, 'rgba(239, 68, 68, 0.4)');
+        drawDashed(bbMid, 'rgba(245, 158, 11, 0.4)');
+        drawDashed(bbLow, 'rgba(16, 185, 129, 0.4)');
+
+        const barStep = candles.length > 1 ? (plotW / (candles.length - 1)) : plotW;
+        const bodyW = Math.max(2, Math.min(10, barStep * 0.55));
+        candles.forEach((c, i) => {
+            const o = opens[i];
+            const h = highs[i];
+            const l = lows[i];
+            const cl = closes[i];
+            if (![o, h, l, cl].every(Number.isFinite)) return;
+            const cx = x(i);
+            const up = cl >= o;
+            const wickColor = up ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+            const bodyColor = up ? 'rgba(16, 185, 129, 0.45)' : 'rgba(239, 68, 68, 0.45)';
+            const yo = y(o);
+            const yc = y(cl);
+            const yh = y(h);
+            const yl = y(l);
+            const top = Math.min(yo, yc);
+            const bodyH = Math.max(1.5, Math.abs(yo - yc));
+
+            ctx.beginPath();
+            ctx.strokeStyle = wickColor;
+            ctx.lineWidth = 1.2;
+            ctx.moveTo(cx, yh);
+            ctx.lineTo(cx, yl);
+            ctx.stroke();
+
+            ctx.fillStyle = bodyColor;
+            ctx.strokeStyle = wickColor;
+            ctx.lineWidth = 1;
+            ctx.fillRect(cx - bodyW / 2, top, bodyW, bodyH);
+            ctx.strokeRect(cx - bodyW / 2, top, bodyW, bodyH);
+        });
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+        let priceStarted = false;
+        closes.forEach((v, i) => {
+            if (!Number.isFinite(v)) return;
+            if (!priceStarted) { ctx.moveTo(x(i), y(v)); priceStarted = true; }
+            else ctx.lineTo(x(i), y(v));
+        });
+        if (priceStarted) ctx.stroke();
+
+        const lastI = candles.length - 1;
+        const lastC = closes[lastI];
+        if (Number.isFinite(lastC)) {
+            ctx.beginPath();
+            ctx.arc(x(lastI), y(lastC), 8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x(lastI), y(lastC), 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#3b82f6';
+            ctx.fill();
+
+            ctx.fillStyle = '#3b82f6';
+            ctx.font = 'bold 12px JetBrains Mono, monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(formatPrice(lastC), x(lastI) - 10, y(lastC) - 10);
+        }
+
+        candles.forEach((c, i) => {
+            const sig = c.indicators?.signal;
+            if (sig === 'BUY' || sig === 'SELL') {
+                const cy = y(closes[i]);
+                ctx.beginPath();
+                if (sig === 'BUY') {
+                    ctx.moveTo(x(i), cy + 12);
+                    ctx.lineTo(x(i) - 5, cy + 18);
+                    ctx.lineTo(x(i) + 5, cy + 18);
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                } else {
+                    ctx.moveTo(x(i), cy - 12);
+                    ctx.lineTo(x(i) - 5, cy - 18);
+                    ctx.lineTo(x(i) + 5, cy - 18);
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.save();
+                ctx.font = 'bold 9px JetBrains Mono, monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = sig === 'BUY' ? 'rgba(16, 185, 129, 1)' : 'rgba(239, 68, 68, 1)';
+                const labelY = sig === 'BUY' ? cy + 30 : cy - 30;
+                ctx.fillText(sig, x(i), labelY);
+                ctx.restore();
+            }
+        });
+
+        // X-axis: time labels (bar time)
+        const n = candles.length;
+        const incDate = axisNeedsDate(candles[0].time, candles[n - 1].time);
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.65)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, plotBottom);
+        ctx.lineTo(width - PAD.right, plotBottom);
+        ctx.stroke();
+
+        const tickSlots = Math.min(7, Math.max(2, n));
+        const tickIdx = [];
+        for (let t = 0; t < tickSlots; t++) {
+            tickIdx.push(Math.round((t / (tickSlots - 1)) * (n - 1)));
+        }
+        const uniqTicks = [...new Set(tickIdx)].sort((a, b) => a - b);
+
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.95)';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        uniqTicks.forEach((i) => {
+            const tx = x(i);
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(71, 85, 105, 0.8)';
+            ctx.moveTo(tx, plotBottom);
+            ctx.lineTo(tx, plotBottom + 5);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.95)';
+            const tstr = formatAxisTime(candles[i].time, { includeDate: incDate });
+            ctx.fillText(tstr, tx, height - 10);
+        });
+
+        if (detailEl) {
+            const c0 = candles[0];
+            const cL = candles[n - 1];
+            const ind = cL.indicators || {};
+            let buyN = 0;
+            let sellN = 0;
+            candles.forEach((c) => {
+                const s = c.indicators?.signal;
+                if (s === 'BUY') buyN++;
+                else if (s === 'SELL') sellN++;
+            });
+            const rsiStr = ind.rsi != null && Number.isFinite(Number(ind.rsi))
+                ? ` · RSI ${Number(ind.rsi).toFixed(1)}`
+                : '';
+            const sessionStr = ind.session_name
+                ? ` · Session ${ind.session_name}${ind.session_profile ? ` (${ind.session_profile})` : ''}`
+                : '';
+            const volumeGuardStr = ind.volume_ratio != null && Number.isFinite(Number(ind.volume_ratio))
+                ? ` · Vol ratio ${Number(ind.volume_ratio).toFixed(2)}x ${ind.volume_filter_passed === false ? 'blocked' : 'ok'}`
+                : '';
+            const buySetupStr = (ind.required_buy_setup_bars != null && Number(ind.required_buy_setup_bars) > 1)
+                ? ` · BUY setup ${Number(ind.buy_setup_bars || 0)}/${Number(ind.required_buy_setup_bars)}`
+                : '';
+            const sellSetupStr = (ind.required_sell_setup_bars != null && Number(ind.required_sell_setup_bars) > 1)
+                ? ` · SELL setup ${Number(ind.sell_setup_bars || 0)}/${Number(ind.required_sell_setup_bars)}`
+                : '';
+            const buyBlockStr = ind.buy_block_reason
+                ? ` · BUY block ${ind.buy_block_reason}`
+                : '';
+            const sellBlockStr = ind.sell_block_reason
+                ? ` · SELL block ${ind.sell_block_reason}`
+                : '';
+            detailEl.style.display = 'block';
+            detailEl.innerHTML =
+                '<strong>Range</strong> ' + formatAxisTime(c0.time, { includeDate: true }) +
+                ' → ' + formatAxisTime(cL.time, { includeDate: true }) +
+                ' · <strong>' + n + '</strong> bars · <strong>Interval</strong> ' + (cL.interval || '--') +
+                ' · <strong>Source</strong> ' + (cL.source || '--') + '<br>' +
+                '<strong>Last OHLC</strong> O ' + formatPrice(cL.open) + ' H ' + formatPrice(cL.high) +
+                ' L ' + formatPrice(cL.low) + ' C ' + formatPrice(cL.close) +
+                ' · Vol ' + fmtVolume(cL.volume) +
+                ' · <strong>Signal</strong> ' + (ind.signal || 'HOLD') + rsiStr +
+                sessionStr + buySetupStr + sellSetupStr + volumeGuardStr +
+                buyBlockStr + sellBlockStr +
+                ' · near BUY/SELL ' + (ind.near_buy ? 'yes' : 'no') + ' / ' + (ind.near_sell ? 'yes' : 'no') + '<br>' +
+                '<span style="color:#10b981">▲</span> <strong>BUY</strong> markers: ' + buyN + ' in window · ' +
+                '<span style="color:#ef4444">▼</span> <strong>SELL</strong>: ' + sellN;
+        }
+
+        chartRenderState = { candles, PAD, plotW, plotH, plotBottom, width, height };
+    }
+
+    function renderLogs() {
+        const consolEl = document.getElementById('logConsole');
+        const autoScrollEnabled = document.getElementById('logAutoScroll').checked;
+        const keepBottom = isNearLogBottom(consolEl);
+        const previousScrollTop = consolEl.scrollTop;
+        const filtered = getFilteredLogs(cachedLogData);
+        document.getElementById('logCount').textContent = `${filtered.length}/${cachedLogData.length}`;
+
+        if (!cachedLogData.length) {
+            consolEl.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted);">Waiting for logs...</div>';
+            return;
+        }
+
+        if (!filtered.length) {
+            consolEl.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);">No logs match the current filters.</div>';
+            return;
+        }
+
+        consolEl.innerHTML = filtered.map(l => {
+            const time = l.time ? l.time.substring(11, 19) : '';
+            const level = String(l.level || 'INFO').toUpperCase();
+            const msg = l.message || '';
+            const eventType = l.event_type ? ` [${l.event_type}]` : '';
+            return `<div class="log-line level-${level}"><span class="log-time">${time}</span> <span class="log-level">[${level}]${escapeHtml(eventType)}</span> ${escapeHtml(msg)}</div>`;
+        }).join('');
+
+        if (autoScrollEnabled || keepBottom) {
+            consolEl.scrollTop = consolEl.scrollHeight;
+        } else {
+            const maxScrollTop = Math.max(0, consolEl.scrollHeight - consolEl.clientHeight);
+            consolEl.scrollTop = Math.min(previousScrollTop, maxScrollTop);
+        }
+    }
+
+    async function reloadLivePage() {
+        try {
+            const [statusRes, accountRes, positionsRes, candlesRes, logsRes, brokerRes, ordersRes, tradesRes] = await Promise.all([
+                fetch('/api/bot/status'),
+                fetch('/api/live/account'),
+                fetch('/api/live/positions'),
+                fetch('/api/live/candles?limit=600'),
+                fetch(buildLogsUrl()),
+                fetch('/api/broker/status'),
+                fetch('/api/live/orders'),
+                fetch('/api/live/trades')
+            ]);
+
+            const status = await statusRes.json();
+            const account = await accountRes.json();
+            const positions = await positionsRes.json();
+            const candlePayload = await candlesRes.json();
+            const logPayload = await logsRes.json();
+            const broker = await brokerRes.json();
+            const ordersPayload = await ordersRes.json();
+            const tradesPayload = await tradesRes.json();
+            const orders = ordersPayload.orders || [];
+            const trades = tradesPayload.trades || [];
+
+            const isManualActive = Boolean(status.is_live_active);
+            const isEffectiveActive = Boolean(status.effective_live_active);
+
+            const toggleBtn = document.getElementById('toggle-btn');
+            toggleBtn.innerText = isManualActive ? 'Turn OFF Trading' : 'Turn ON Trading';
+            toggleBtn.className = isManualActive ? 'btn danger' : 'btn primary';
+
+            const modeBadge = document.getElementById('mode-badge');
+            const mode = String(status.trading_mode || '--').toUpperCase();
+            modeBadge.innerText = `MODE ${mode}`;
+            modeBadge.className = 'mode-badge ' + (mode === 'LIVE' ? 'live' : mode === 'PAPER' ? 'paper' : '');
+
+            document.getElementById('strategy-name').innerText = status.strategy || '--';
+            const activeSource = String(status.data_active_source || '--').toUpperCase();
+            document.getElementById('active-source').innerText = activeSource;
+            const lagSeconds = status.data_active_lag_seconds;
+            document.getElementById('primary-lag').innerText = lagSeconds == null ? '--' : `${Number(lagSeconds).toFixed(0)}s`;
+
+            document.getElementById('chart-symbol').innerText = status.symbol || '--';
+
+            const lastPrice = status.last_price;
+            const candles = candlePayload.candles || [];
+            const chartWindowBars = 36; // 3 hours for 5m bars
+            const chartCandles = candles.slice(-chartWindowBars);
+            const fallbackPrice = candles.length ? candles[candles.length - 1].close : null;
+            const displayPrice = lastPrice == null ? fallbackPrice : lastPrice;
+            document.getElementById('live-price').innerText = formatPrice(displayPrice);
+            document.getElementById('live-price-time').innerText = formatTimestamp(status.last_price_time);
+
+            const lastSigEl = document.getElementById('last-signal');
+            const sig = status.last_signal || '--';
+            lastSigEl.innerText = sig;
+            lastSigEl.style.color = sig === 'BUY' ? 'var(--accent-green)' : sig === 'SELL' ? 'var(--accent-red)' : 'var(--text-secondary)';
+
+            // Near setup badges
+            const nearContainer = document.getElementById('near-flags-container');
+            let nearHtml = '';
+            if (status.near_buy) nearHtml += '<span class="near-badge buy">NEAR BUY</span> ';
+            if (status.near_sell) nearHtml += '<span class="near-badge sell">NEAR SELL</span> ';
+            nearContainer.innerHTML = nearHtml || '<span class="muted" style="font-size:11px;">No near setups</span>';
+
+            // RSI gauge
+            const lastCandle = candles.length ? candles[candles.length - 1] : null;
+            const ind = lastCandle?.indicators || {};
+            const rsi = ind.rsi;
+            const rsiEl = document.getElementById('rsiValue');
+            const needle = document.getElementById('rsiNeedle');
+            if (rsi != null && Number.isFinite(Number(rsi))) {
+                const rsiNum = Number(rsi);
+                rsiEl.textContent = rsiNum.toFixed(1);
+                needle.style.left = Math.max(0, Math.min(100, rsiNum)) + '%';
+                rsiEl.className = 'rsi-value ' + (rsiNum < 30 ? 'oversold' : rsiNum > 70 ? 'overbought' : 'neutral');
+            } else {
+                rsiEl.textContent = '--';
+                rsiEl.className = 'rsi-value neutral';
+                needle.style.left = '50%';
+            }
+
+            // BB values
+            document.getElementById('bbUpper').textContent = formatPrice(ind.bb_upper);
+            document.getElementById('bbMid').textContent = formatPrice(ind.bb_mid);
+            document.getElementById('bbLower').textContent = formatPrice(ind.bb_lower);
+            document.getElementById('smiValue').textContent = ind.smi != null ? Number(ind.smi).toFixed(1) : '--';
+            document.getElementById('smiSignal').textContent = ind.smi_signal != null ? Number(ind.smi_signal).toFixed(1) : '--';
+            document.getElementById('trendSma').textContent = formatPrice(ind.trend_sma);
+
+            // Guard note
+            const guardNote = document.getElementById('guard-note');
+            const pauseReasons = status.pause_reasons || [];
+            if (isEffectiveActive) {
+                guardNote.innerHTML = '<span style="color:var(--accent-green);font-weight:600;">Live order submission is active.</span>';
+            } else if (pauseReasons.length > 0) {
+                guardNote.innerHTML = '<span style="color:var(--accent-red);font-weight:600;">Bot paused:</span> ' + pauseReasons.join(' &bull; ');
+            } else {
+                guardNote.innerText = 'Live order submission is inactive.';
+            }
+            document.getElementById('readiness-panel').innerHTML = renderReadinessPanel(status, broker);
+
+            // Broker status
+            const connState = document.getElementById('broker-conn-state');
+            if (broker.connected) {
+                connState.innerText = 'CONNECTED';
+                connState.style.color = 'var(--accent-green)';
+            } else if (broker.web_api_enabled) {
+                connState.innerText = 'DISCONNECTED';
+                connState.style.color = 'var(--accent-red)';
+            } else {
+                connState.innerText = 'NOT ENABLED';
+                connState.style.color = 'var(--text-muted)';
+            }
+            document.getElementById('broker-api-url').innerText = broker.web_api_url || '--';
+            document.getElementById('broker-account-id').innerText = broker.account_id || '--';
+
+            const tickleError = broker.last_tickle_error;
+            const tickleOk = broker.last_tickle_ok;
+            if (tickleOk === null) {
+                document.getElementById('broker-tickle-status').innerText = 'N/A';
+            } else if (tickleOk) {
+                document.getElementById('broker-tickle-status').innerText = 'OK';
+            } else if (tickleError && tickleError.includes('not_authenticated')) {
+                document.getElementById('broker-tickle-status').innerText = 'WAITING FOR LOGIN';
+            } else {
+                document.getElementById('broker-tickle-status').innerText = 'FAILING';
+            }
+            document.getElementById('broker-tickle-failures').innerText = broker.consecutive_tickle_failures || '0';
+            document.getElementById('broker-last-heartbeat').innerText = formatRelativeTimestamp(broker.last_successful_tickle_ts);
+
+            const reauthBtn = document.getElementById('broker-reauth-btn');
+            const reauthResult = document.getElementById('broker-reauth-result');
+            const telegramBtn = document.getElementById('telegram-test-btn');
+            reauthBtn.disabled = !broker.web_api_enabled || Boolean(broker.reauth_in_progress);
+            reauthBtn.innerText = broker.reauth_in_progress ? 'Auth Running...' : 'Try Broker Auth';
+            telegramBtn.disabled = !Boolean(status.telegram_enabled);
+            if (!broker.web_api_enabled) {
+                reauthResult.innerText = 'Web API disabled';
+            } else if (broker.last_reauth_result?.message) {
+                reauthResult.innerText = broker.last_reauth_result.message;
+                reauthResult.style.color = broker.last_reauth_result.ok ? 'var(--accent-green)' : 'var(--accent-red)';
+            }
+            if (status.last_telegram_result?.message) {
+                const telegramResult = document.getElementById('telegram-test-result');
+                telegramResult.innerText = status.last_telegram_result.message;
+                telegramResult.style.color = status.last_telegram_result.ok ? 'var(--accent-green)' : 'var(--accent-red)';
+            }
+
+            const errorRow = document.getElementById('broker-error-row');
+            const errorSpan = document.getElementById('broker-last-error');
+            if (tickleError) {
+                errorRow.style.display = '';
+                errorSpan.innerText = tickleError;
+            } else {
+                errorRow.style.display = 'none';
+            }
+
+            const sessionState = document.getElementById('market-session-state');
+            const marketOpen = Boolean(status.market_session_open);
+            sessionState.innerText = marketOpen ? 'OPEN' : 'CLOSED';
+            sessionState.style.color = marketOpen ? 'var(--accent-green)' : 'var(--accent-red)';
+            document.getElementById('market-session-name').innerText = status.market_session || '--';
+            document.getElementById('market-session-now').innerText = formatEtTimestamp(status.market_session_now_et);
+            document.getElementById('market-session-next-open').innerText = formatEtTimestamp(status.next_session_open);
+            document.getElementById('market-session-next-close').innerText = formatEtTimestamp(status.next_session_close);
+
+            document.getElementById('account-data').innerHTML = renderAccountSummary(account);
+            document.getElementById('positions-data').innerHTML = renderPositionsSummary(positions);
+            document.getElementById('slot-outlook-data').innerHTML = renderSlotOutlook(status);
+            document.getElementById('orders-summary').innerText = summarizeOrders(orders);
+            document.getElementById('orders-data').innerText = JSON.stringify(orders, null, 2);
+            document.getElementById('trades-summary').innerText = summarizeTrades(trades);
+            document.getElementById('trades-data').innerText = JSON.stringify(trades, null, 2);
+
+            cachedCandleData = chartCandles;
+            const nextLogs = logPayload.logs || [];
+            const nextDigest = buildLogPayloadDigest(nextLogs);
+            const logsChanged = nextDigest !== lastLogPayloadDigest;
+            cachedLogData = nextLogs;
+            lastLogPayloadDigest = nextDigest;
+            updateEventTypeOptions(logPayload.event_types || []);
+            document.getElementById('candleCount').textContent = `${chartCandles.length} candles (3h window)`;
+            drawPriceChart(cachedCandleData);
+            if (logsChanged || document.getElementById('logAutoScroll').checked) {
+                renderLogs();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    document.getElementById('toggle-btn').addEventListener('click', async () => {
+        const statusRes = await fetch('/api/bot/status');
+        const status = await statusRes.json();
+        const isActive = Boolean(status.is_live_active);
+        const mode = String(status.trading_mode || '').toUpperCase();
+
+        const message = isActive
+            ? 'Are you sure you want to turn OFF live trading?'
+            : 'Are you sure you want to turn ON live trading? This may place real orders when mode is LIVE.';
+
+        if (!window.confirm(message)) return;
+        let confirmation = null;
+        if (!isActive && mode === 'LIVE') {
+            const typed = window.prompt('LIVE mode can place real broker orders. Type LIVE to enable trading.');
+            if (typed !== 'LIVE') return;
+            confirmation = typed;
+        }
+
+        const res = await fetch('/api/bot/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirmation }),
+        });
+        if (res.ok) reloadLivePage();
+        else {
+            const payload = await res.json().catch(() => ({}));
+            window.alert(payload.error || 'Failed to toggle trading.');
+        }
+    });
+
+    document.getElementById('broker-reauth-btn').addEventListener('click', async () => {
+        if (!window.confirm('Try to re-authenticate the IBKR Gateway now? You may still need to approve an IBKR Mobile push.')) return;
+        const btn = document.getElementById('broker-reauth-btn');
+        const resultEl = document.getElementById('broker-reauth-result');
+        btn.disabled = true;
+        btn.innerText = 'Auth Running...';
+        resultEl.style.color = 'var(--text-muted)';
+        resultEl.innerText = 'requesting...';
+        try {
+            const res = await fetch('/api/broker/reauthenticate', { method: 'POST' });
+            const payload = await res.json();
+            resultEl.innerText = payload.message || (res.ok ? 'Broker authentication succeeded.' : 'Broker authentication failed.');
+            resultEl.style.color = payload.ok ? 'var(--accent-green)' : 'var(--accent-red)';
+        } catch (err) {
+            resultEl.innerText = String(err);
+            resultEl.style.color = 'var(--accent-red)';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Try Broker Auth';
+            reloadLivePage();
+        }
+    });
+
+    document.getElementById('telegram-test-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('telegram-test-btn');
+        const resultEl = document.getElementById('telegram-test-result');
+        btn.disabled = true;
+        btn.innerText = 'Sending...';
+        resultEl.style.color = 'var(--text-muted)';
+        resultEl.innerText = 'sending status report...';
+        try {
+            const res = await fetch('/api/notifications/telegram/test', { method: 'POST' });
+            const payload = await res.json();
+            resultEl.innerText = payload.message || (res.ok ? 'Telegram message sent.' : 'Telegram send failed.');
+            resultEl.style.color = payload.ok ? 'var(--accent-green)' : 'var(--accent-red)';
+        } catch (err) {
+            resultEl.innerText = String(err);
+            resultEl.style.color = 'var(--accent-red)';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Send Telegram Test';
+            reloadLivePage();
+        }
+    });
+
+    document.querySelectorAll('#logFilterBar .log-filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => onLogLevelToggle(btn));
+    });
+
+    document.querySelectorAll('#logFilterActions .log-action-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applyQuickLogFilter(btn.dataset.action));
+    });
+
+    document.getElementById('logEventTypeFilter').addEventListener('change', (ev) => {
+        logFilters.eventType = String(ev.target.value || '').trim().toLowerCase();
+        renderLogs();
+        reloadLivePage();
+    });
+
+    const debouncedLogReload = debounce(reloadLivePage, 250);
+    document.getElementById('logSearchFilter').addEventListener('input', (ev) => {
+        logFilters.query = String(ev.target.value || '').trim().toLowerCase();
+        renderLogs();
+        debouncedLogReload();
+    });
+
+    document.getElementById('logAutoScroll').addEventListener('change', () => {
+        renderLogs();
+    });
+
+    syncLogLevelButtons();
+    window.addEventListener('resize', () => drawPriceChart(cachedCandleData));
+
+    (function initChartHoverOnce() {
+        const canvas = document.getElementById('live-price-chart');
+        const tip = document.getElementById('chart-tooltip');
+        if (!canvas || !tip || canvas.dataset.hoverBound === '1') return;
+        canvas.dataset.hoverBound = '1';
+        const hide = () => { tip.style.display = 'none'; };
+        canvas.addEventListener('mousemove', (ev) => {
+            if (!chartRenderState || !chartRenderState.candles || chartRenderState.candles.length < 2) {
+                hide();
+                return;
+            }
+            const { candles, PAD, plotW, plotBottom } = chartRenderState;
+            const rect = canvas.getBoundingClientRect();
+            const mx = ev.clientX - rect.left;
+            const my = ev.clientY - rect.top;
+            if (mx < PAD.left - 4 || mx > PAD.left + plotW + 4 || my < PAD.top || my > plotBottom + 6) {
+                hide();
+                return;
+            }
+            const n = candles.length;
+            const i = Math.max(0, Math.min(n - 1, Math.round((mx - PAD.left) / plotW * (n - 1))));
+            const c = candles[i];
+            const ind = c.indicators || {};
+            let bbLine = '';
+            if (ind.bb_upper != null && ind.bb_lower != null && Number.isFinite(Number(ind.bb_upper))) {
+                bbLine = '<br>BB ' + formatPrice(ind.bb_lower) + ' … ' + formatPrice(ind.bb_upper);
+            }
+            let rsiPart = '';
+            if (ind.rsi != null && Number.isFinite(Number(ind.rsi))) {
+                rsiPart = ' · RSI ' + Number(ind.rsi).toFixed(1);
+            }
+            tip.innerHTML =
+                '<div style="font-weight:600;margin-bottom:4px;border-bottom:1px solid rgba(71,85,105,0.55);padding-bottom:4px">' +
+                formatAxisTime(c.time, { includeDate: true }) + '</div>' +
+                'O ' + formatPrice(c.open) + ' H ' + formatPrice(c.high) +
+                ' L ' + formatPrice(c.low) + ' C ' + formatPrice(c.close) + '<br>' +
+                'Vol ' + fmtVolume(c.volume) + ' · ' + (c.source || '') +
+                '<br><strong>' + (ind.signal || 'HOLD') + '</strong>' + rsiPart + bbLine;
+
+            const parent = canvas.parentElement;
+            const pr = parent.getBoundingClientRect();
+            let lx = ev.clientX - pr.left + 14;
+            let ly = ev.clientY - pr.top + 10;
+            if (lx + 268 > parent.clientWidth) lx = ev.clientX - pr.left - 268;
+            if (ly + 130 > parent.clientHeight) ly = ev.clientY - pr.top - 132;
+            tip.style.left = lx + 'px';
+            tip.style.top = ly + 'px';
+            tip.style.display = 'block';
+        });
+        canvas.addEventListener('mouseleave', hide);
+    })();
+
+    setInterval(reloadLivePage, 5000);
+    reloadLivePage();
+</script>
+{% endblock %}

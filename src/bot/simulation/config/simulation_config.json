@@ -1,0 +1,62 @@
+{
+  "defaults": {
+    "starting_balance": 10000,
+    "trade_quantity": 10,
+    "max_recent_events": 80,
+    "near_band_pct": 0.001
+  },
+
+  "export_policy": {
+    "summary_filename": "latest_sims.json",
+    "summary_every_n_updates": 1,
+    "global_recent_limit": 200
+  },
+  "simulations": [
+    {
+      "id": "RSI_ONLY_V1",
+      "name": "RSI-Pure-5m MSTR",
+      "enabled": true,
+      "strategy": "RSI_ONLY",
+      "commission_per_trade": 2.5,
+      "rsi_period": 14,
+      "overbought": 70,
+      "oversold": 30,
+      "stop_loss_pct": 0.03,
+      "trade_allocation_pct": 0.9
+    },
+    {
+      "id": "RSI_5M_V2",
+      "name": "RSI-5m-V2 MSTR",
+      "enabled": true,
+      "strategy": "RSI_5M_V2",
+      "commission_per_trade": 2.5,
+      "rsi_period": 14,
+      "overbought": 75,
+      "oversold": 25,
+      "trend_timeframe": "1h",
+      "trend_ema_period": 200,
+      "atr_period": 14,
+      "atr_stop_multiple": 2.0,
+      "trade_allocation_pct": 0.25
+    },
+    {
+      "id": "RSI_BB_5M_V3",
+      "name": "RSI-BB-5m-V3 MSTR",
+      "enabled": true,
+      "strategy": "RSI_BB_5M_V3",
+      "commission_per_trade": 2.5,
+      "rsi_period": 14,
+      "bb_length": 20,
+      "bb_std": 2.5,
+      "bb_tolerance": 0.002,
+      "bull_oversold": 33,
+      "bear_oversold": 25,
+      "overbought": 70,
+      "trend_timeframe": "1h",
+      "trend_ema_period": 200,
+      "stop_loss_pct": 0.05,
+      "trade_allocation_pct": 0.25
+    }
+  ]
+}
+

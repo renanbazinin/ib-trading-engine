@@ -1,0 +1,181 @@
+{
+  "timestamp": "2026-04-24T08:31:14.656157+00:00",
+  "summary": {
+    "sim_count": 4,
+    "signals_total": 1,
+    "signals_acted_total": 1,
+    "trades_total": 1
+  },
+  "recent_signals": [
+    {
+      "ts": "2026-04-24T08:31:12.404359+00:00",
+      "sim_id": "SCALPER_10_5",
+      "signal": "BUY",
+      "acted": true,
+      "reason": "executed",
+      "price": 388.577
+    }
+  ],
+  "recent_trades": [
+    {
+      "ts": "2026-04-24T08:31:12.404359+00:00",
+      "sim_id": "SCALPER_10_5",
+      "side": "BUY",
+      "qty": 24,
+      "price": 388.577,
+      "realized_pnl": 0.0
+    }
+  ],
+  "simulations": [
+    {
+      "id": "RSI_BB_DEFAULT",
+      "name": "RSI+BB Default",
+      "config": {
+        "id": "RSI_BB_DEFAULT",
+        "name": "RSI+BB Default",
+        "enabled": true,
+        "bb_length": 20,
+        "bb_std": 2.2,
+        "smi_fast": 10,
+        "smi_slow": 3,
+        "smi_sig": 3
+      },
+      "balance": 10000.0,
+      "equity": 10000.0,
+      "position": 0,
+      "avg_cost": 0.0,
+      "indicators": {
+        "BB_LOWER": 372.0508,
+        "BB_MID": 373.4927,
+        "BB_UPPER": 374.9345,
+        "SMI": 0.0697,
+        "SMI_SIGNAL": 0.0461
+      },
+      "stats": {
+        "signals_total": 0,
+        "signals_acted": 0,
+        "trades_total": 0,
+        "realized_pnl": 0.0
+      },
+      "recent_signals": [],
+      "recent_trades": []
+    },
+    {
+      "id": "RSI_ONLY_5M",
+      "name": "Pure RSI 5m",
+      "config": {
+        "id": "RSI_ONLY_5M",
+        "name": "Pure RSI 5m",
+        "enabled": true,
+        "bb_length": 20,
+        "bb_std": 2.0,
+        "smi_fast": 10,
+        "smi_slow": 3,
+        "smi_sig": 3
+      },
+      "balance": 10000.0,
+      "equity": 10000.0,
+      "position": 0,
+      "avg_cost": 0.0,
+      "indicators": {
+        "BB_LOWER": 372.0508,
+        "BB_MID": 373.4927,
+        "BB_UPPER": 374.9345,
+        "SMI": 0.0697,
+        "SMI_SIGNAL": 0.0461
+      },
+      "stats": {
+        "signals_total": 0,
+        "signals_acted": 0,
+        "trades_total": 0,
+        "realized_pnl": 0.0
+      },
+      "recent_signals": [],
+      "recent_trades": []
+    },
+    {
+      "id": "SCALPER_10_5",
+      "name": "Fast Scalper (10/5)",
+      "config": {
+        "id": "SCALPER_10_5",
+        "name": "Fast Scalper (10/5)",
+        "enabled": true,
+        "bb_length": 10,
+        "bb_std": 1.5,
+        "smi_fast": 5,
+        "smi_slow": 3,
+        "smi_sig": 3
+      },
+      "balance": 674.15,
+      "equity": 9641.27,
+      "position": 24,
+      "avg_cost": 388.577,
+      "indicators": {
+        "BB_LOWER": 372.4421,
+        "BB_MID": 373.433,
+        "BB_UPPER": 374.4239,
+        "SMI": 0.1245,
+        "SMI_SIGNAL": 0.0934
+      },
+      "stats": {
+        "signals_total": 1,
+        "signals_acted": 1,
+        "trades_total": 1,
+        "realized_pnl": 0.0
+      },
+      "recent_signals": [
+        {
+          "ts": "2026-04-24T08:31:12.404359+00:00",
+          "sim_id": "SCALPER_10_5",
+          "signal": "BUY",
+          "acted": true,
+          "reason": "executed",
+          "price": 388.577
+        }
+      ],
+      "recent_trades": [
+        {
+          "ts": "2026-04-24T08:31:12.404359+00:00",
+          "sim_id": "SCALPER_10_5",
+          "side": "BUY",
+          "qty": 24,
+          "price": 388.577,
+          "realized_pnl": 0.0
+        }
+      ]
+    },
+    {
+      "id": "SWING_30_20",
+      "name": "Stable Swing (30/20)",
+      "config": {
+        "id": "SWING_30_20",
+        "name": "Stable Swing (30/20)",
+        "enabled": true,
+        "bb_length": 30,
+        "bb_std": 2.0,
+        "smi_fast": 20,
+        "smi_slow": 5,
+        "smi_sig": 5
+      },
+      "balance": 10000.0,
+      "equity": 10000.0,
+      "position": 0,
+      "avg_cost": 0.0,
+      "indicators": {
+        "BB_LOWER": 371.6852,
+        "BB_MID": 373.4275,
+        "BB_UPPER": 375.1698,
+        "SMI": -0.0084,
+        "SMI_SIGNAL": -0.0346
+      },
+      "stats": {
+        "signals_total": 0,
+        "signals_acted": 0,
+        "trades_total": 0,
+        "realized_pnl": 0.0
+      },
+      "recent_signals": [],
+      "recent_trades": []
+    }
+  ]
+}

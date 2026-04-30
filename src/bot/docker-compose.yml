@@ -1,0 +1,44 @@
+services:
+  bot:
+    build: .
+    container_name: ib_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./simulation/results:/app/simulation/results
+
+  ib_web_gateway:
+    image: voyz/ibeam:0.5.11-rc1
+    container_name: ib_web_gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./inputs:/srv/inputs
+    environment:
+      - IBEAM_ACCOUNT=${IBKR_USER}
+      - IBEAM_PASSWORD=${IBKR_PW}
+      - IBEAM_PAPER=${IBEAM_PAPER:-True}
+      - IBEAM_SSL_VERIFY=False
+      - IBEAM_PORT=5000
+      # Session resilience
+      - IBEAM_MAINTENANCE_INTERVAL=60
+      - IBEAM_REQUEST_RETRIES=5
+      - IBEAM_REQUEST_TIMEOUT=20
+      - IBEAM_GATEWAY_STARTUP=30
+      - IBEAM_PAGE_LOAD_TIMEOUT=30
+      - IBEAM_OAUTH_TIMEOUT=300
+      # 2FA device dropdown handling (PR #277 fix)
+      - IBEAM_TWO_FA_SELECT=true
+      - IBEAM_TWO_FA_SELECT_EL_ID=TAG@@select
+      - IBEAM_TWO_FA_SELECT_TARGET=IB Key
+      # Wait for manual push notification approval
+      - IBEAM_MANUAL_TWO_FA=true
+      - IBEAM_MANUAL_TWO_FA_TIMEOUT=300
+      - IBEAM_MAX_REAUTHENTICATE_RETRIES=5
+      - IBEAM_RESTART_FAILED_SESSIONS=True
+      - IBEAM_COUNT_TIMEOUT_AS_FAILED=True
+      # Debugging
+      - IBEAM_ERROR_SCREENSHOTS=True
+      - IBEAM_LOG_LEVEL=INFO

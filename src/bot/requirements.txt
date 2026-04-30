@@ -1,0 +1,7 @@
+flask>=3.0.0
+requests>=2.31.0
+pandas>=2.1.1
+pandas-ta>=0.3.14b0
+python-dotenv>=1.0.0
+yfinance>=0.2.38
+protobuf>=5.29.3

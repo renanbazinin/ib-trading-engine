@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 16px;">
+    <h2 style="margin-bottom: 8px;">Simulation Config</h2>
+    <p class="muted" style="margin-top: 0; font-size: 12px;">Edit simulation parameters in JSON and save. Changes require bot restart to apply.</p>
+    <div class="muted" style="font-size: 12px; margin-top: 6px;">
+        Config Path: <span id="config-path" style="color:var(--accent-cyan);font-family:'JetBrains Mono',monospace;">Loading...</span>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 16px;">
+    <textarea id="config-editor" style="
+        width: 100%;
+        min-height: 400px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        background: #050810;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        resize: vertical;
+        tab-size: 2;
+    "></textarea>
+    <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+        <button id="save-config-btn" class="btn primary">Save Config</button>
+        <span id="save-result" class="muted" style="font-size: 13px;"></span>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom: 10px;">How To Apply</h3>
+    <ol style="padding-left: 20px; color: var(--text-secondary); font-size: 13px; line-height: 1.8;">
+        <li>Update JSON and click <strong style="color:var(--accent-blue);">Save Config</strong>.</li>
+        <li>Restart the bot process.</li>
+        <li>Refresh dashboard pages and verify new simulation set.</li>
+    </ol>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config/simulations');
+            const data = await res.json();
+
+            if (!res.ok) {
+                document.getElementById('save-result').innerText = data.error || 'Failed to load config';
+                document.getElementById('save-result').style.color = 'var(--accent-red)';
+                return;
+            }
+
+            document.getElementById('config-path').innerText = data.path || '--';
+            document.getElementById('config-editor').value = data.config_text || JSON.stringify(data.config || {}, null, 2);
+        } catch (err) {
+            document.getElementById('save-result').innerText = String(err);
+            document.getElementById('save-result').style.color = 'var(--accent-red)';
+        }
+    }
+
+    document.getElementById('save-config-btn').addEventListener('click', async () => {
+        const text = document.getElementById('config-editor').value;
+        if (!window.confirm('Save simulation config now? You must restart the bot to apply changes.')) return;
+
+        const resultEl = document.getElementById('save-result');
+        resultEl.innerText = 'Saving...';
+        resultEl.style.color = 'var(--accent-yellow)';
+
+        try {
+            const res = await fetch('/api/config/simulations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config_text: text })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                resultEl.innerText = data.message || 'Saved. Restart required.';
+                resultEl.style.color = 'var(--accent-green)';
+            } else {
+                resultEl.innerText = data.error || 'Save failed';
+                resultEl.style.color = 'var(--accent-red)';
+            }
+        } catch (err) {
+            resultEl.innerText = String(err);
+            resultEl.style.color = 'var(--accent-red)';
+        }
+    });
+
+    loadConfig();
+</script>
+{% endblock %}

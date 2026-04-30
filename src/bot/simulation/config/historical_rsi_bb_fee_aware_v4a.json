@@ -1,0 +1,47 @@
+{
+  "defaults": {
+    "starting_balance": 10000,
+    "trade_quantity": 10,
+    "max_recent_events": 500,
+    "near_band_pct": 0.001
+  },
+  "export_policy": {
+    "summary_filename": "latest_sims.json",
+    "summary_every_n_updates": 1,
+    "global_recent_limit": 500
+  },
+  "simulations": [
+    {
+      "id": "RSI_BB_FEE_AWARE_V4A",
+      "name": "RSI+BB Fee-aware V4A Smart Aggression",
+      "enabled": true,
+      "strategy": "RSI_BB_FEE_AWARE_V4A",
+      "commission_per_trade": 2.5,
+      "rsi_period": 14,
+      "bb_length": 20,
+      "bb_std": 2.2,
+      "overbought": 70,
+      "oversold": 35,
+      "trend_sma_period": 50,
+      "bear_dip_rsi": 30,
+      "bb_tolerance": 0.003,
+      "fee_per_trade": 2.5,
+      "estimated_trade_notional": 1000.0,
+      "min_reward_pct": 0.004,
+      "fee_reward_multiple": 2.0,
+      "min_bb_width_pct": 0.006,
+      "require_confirmation": true,
+      "ema_fast_period": 9,
+      "atr_period": 14,
+      "atr_baseline_period": 50,
+      "volume_lookback": 20,
+      "volume_multiplier": 1.25,
+      "volume_spike_window_bars": 3,
+      "profit_rsi": 70,
+      "dynamic_bb_min_std": 2.1,
+      "dynamic_bb_max_std": 2.3,
+      "max_stagnation_bars": 24,
+      "stagnation_min_pnl_pct": 0.0
+    }
+  ]
+}

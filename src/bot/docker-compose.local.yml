@@ -1,0 +1,16 @@
+services:
+  bot:
+    ports:
+      - "5050:5050"
+    environment:
+      - DASHBOARD_PORT=5050
+      - IBKR_WEB_API_BASE_URL=https://ib_web_gateway:5000/v1/api
+    depends_on:
+      - ib_web_gateway
+
+  ib_web_gateway:
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    environment:
+      - IBEAM_GATEWAY_BASE_URL=https://localhost:5000

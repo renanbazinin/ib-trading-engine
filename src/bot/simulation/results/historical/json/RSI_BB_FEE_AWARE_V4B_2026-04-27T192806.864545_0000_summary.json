@@ -1,0 +1,316 @@
+{
+  "id": "RSI_BB_FEE_AWARE_V4B",
+  "name": "RSI+BB Fee-aware V4B Smart Aggression DCA",
+  "config": {
+    "id": "RSI_BB_FEE_AWARE_V4B",
+    "name": "RSI+BB Fee-aware V4B Smart Aggression DCA",
+    "enabled": true,
+    "strategy": "RSI_BB_FEE_AWARE_V4B",
+    "commission_per_trade": 2.5,
+    "rsi_period": 14,
+    "bb_length": 20,
+    "bb_std": 2.2,
+    "overbought": 70,
+    "oversold": 35,
+    "trend_sma_period": 50,
+    "bear_dip_rsi": 30,
+    "bb_tolerance": 0.003,
+    "fee_per_trade": 2.5,
+    "estimated_trade_notional": 1000.0,
+    "min_reward_pct": 0.004,
+    "fee_reward_multiple": 2.0,
+    "min_bb_width_pct": 0.006,
+    "require_confirmation": true,
+    "ema_fast_period": 9,
+    "atr_period": 14,
+    "atr_baseline_period": 50,
+    "volume_lookback": 20,
+    "volume_multiplier": 1.25,
+    "volume_spike_window_bars": 3,
+    "profit_rsi": 70,
+    "dynamic_bb_min_std": 2.1,
+    "dynamic_bb_max_std": 2.3,
+    "max_stagnation_bars": 24,
+    "stagnation_min_pnl_pct": 0.0,
+    "scale_in_enabled": true,
+    "scale_in_initial_fraction": 0.4,
+    "scale_in_fraction": 0.6,
+    "scale_in_drop_pct": 0.0125
+  },
+  "balance": 10028.95,
+  "equity": 10028.95,
+  "position": 0,
+  "avg_cost": 0.0,
+  "indicators": {
+    "RSI": 36.9625,
+    "EMA_FAST": 387.7269,
+    "ATR": 1.2698,
+    "ATR_SMA": 1.2158,
+    "VOLUME_SMA": 443912.25,
+    "DYNAMIC_BB_STD": 2.2978,
+    "BB_MID": 388.6808,
+    "BB_LOWER": 386.0673,
+    "BB_UPPER": 391.2943,
+    "EXT_BB_LOWER": 386.3469,
+    "EXT_BB_MID": 388.6808,
+    "EXT_BB_UPPER": 391.0147,
+    "TREND_SMA": 388.4783
+  },
+  "stats": {
+    "signals_total": 9,
+    "signals_acted": 9,
+    "trades_total": 9,
+    "realized_pnl": 28.9501,
+    "total_commissions": 22.5
+  },
+  "recent_signals": [
+    {
+      "ts": "2026-04-27T19:27:42.434174+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "SELL",
+      "acted": true,
+      "reason": "executed",
+      "price": 382.82
+    },
+    {
+      "ts": "2026-04-27T19:27:42.421665+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "BUY",
+      "acted": true,
+      "reason": "executed",
+      "price": 381.815
+    },
+    {
+      "ts": "2026-04-27T19:27:25.985278+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "SELL",
+      "acted": true,
+      "reason": "executed",
+      "price": 403.6
+    },
+    {
+      "ts": "2026-04-27T19:27:25.944081+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "BUY",
+      "acted": true,
+      "reason": "executed",
+      "price": 403.05
+    },
+    {
+      "ts": "2026-04-27T19:27:15.057198+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "SELL",
+      "acted": true,
+      "reason": "executed",
+      "price": 418.78
+    },
+    {
+      "ts": "2026-04-27T19:27:15.048691+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "BUY",
+      "acted": true,
+      "reason": "executed",
+      "price": 417.2
+    },
+    {
+      "ts": "2026-04-27T19:27:13.822347+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "SELL",
+      "acted": true,
+      "reason": "executed",
+      "price": 423.745
+    },
+    {
+      "ts": "2026-04-27T19:27:13.625518+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "BUY",
+      "acted": true,
+      "reason": "scale_in_executed",
+      "price": 419.81
+    },
+    {
+      "ts": "2026-04-27T19:27:13.521577+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "signal": "BUY",
+      "acted": true,
+      "reason": "executed",
+      "price": 427.235
+    }
+  ],
+  "recent_trades": [
+    {
+      "ts": "2026-04-27T19:27:42.434174+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 9,
+      "price": 382.82,
+      "commission": 2.5,
+      "realized_pnl": 6.545
+    },
+    {
+      "ts": "2026-04-27T19:27:42.421665+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 9,
+      "price": 381.815,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:25.985278+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 9,
+      "price": 403.6,
+      "commission": 2.5,
+      "realized_pnl": 2.4502
+    },
+    {
+      "ts": "2026-04-27T19:27:25.944081+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 9,
+      "price": 403.05,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:15.057198+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 9,
+      "price": 418.78,
+      "commission": 2.5,
+      "realized_pnl": 11.7199
+    },
+    {
+      "ts": "2026-04-27T19:27:15.048691+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 9,
+      "price": 417.2,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:13.822347+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 21,
+      "price": 423.745,
+      "commission": 2.5,
+      "realized_pnl": 20.735
+    },
+    {
+      "ts": "2026-04-27T19:27:13.625518+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 13,
+      "price": 419.81,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": true
+    },
+    {
+      "ts": "2026-04-27T19:27:13.521577+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 8,
+      "price": 427.235,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    }
+  ],
+  "all_trades": [
+    {
+      "ts": "2026-04-27T19:27:13.521577+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 8,
+      "price": 427.235,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:13.625518+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 13,
+      "price": 419.81,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": true
+    },
+    {
+      "ts": "2026-04-27T19:27:13.822347+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 21,
+      "price": 423.745,
+      "commission": 2.5,
+      "realized_pnl": 20.735
+    },
+    {
+      "ts": "2026-04-27T19:27:15.048691+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 9,
+      "price": 417.2,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:15.057198+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 9,
+      "price": 418.78,
+      "commission": 2.5,
+      "realized_pnl": 11.7199
+    },
+    {
+      "ts": "2026-04-27T19:27:25.944081+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 9,
+      "price": 403.05,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:25.985278+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 9,
+      "price": 403.6,
+      "commission": 2.5,
+      "realized_pnl": 2.4502
+    },
+    {
+      "ts": "2026-04-27T19:27:42.421665+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "BUY",
+      "qty": 9,
+      "price": 381.815,
+      "commission": 2.5,
+      "realized_pnl": -2.5,
+      "scale_in": false
+    },
+    {
+      "ts": "2026-04-27T19:27:42.434174+00:00",
+      "sim_id": "RSI_BB_FEE_AWARE_V4B",
+      "side": "SELL",
+      "qty": 9,
+      "price": 382.82,
+      "commission": 2.5,
+      "realized_pnl": 6.545
+    }
+  ]
+}

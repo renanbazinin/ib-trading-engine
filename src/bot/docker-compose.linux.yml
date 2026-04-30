@@ -1,0 +1,6 @@
+services:
+  bot:
+    network_mode: "host"
+
+  ib_web_gateway:
+    network_mode: "host"

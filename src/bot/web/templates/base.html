@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWS Bot Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-card: #111827;
+            --bg-card-hover: #1a2332;
+            --border: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --accent-orange: #f97316;
+            --glow-green: rgba(16, 185, 129, 0.15);
+            --glow-red: rgba(239, 68, 68, 0.15);
+            --glow-blue: rgba(59, 130, 246, 0.1);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.05));
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-text {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 6px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-blue);
+            border-color: rgba(59, 130, 246, 0.3);
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .nav-link.active {
+            color: var(--accent-blue);
+            border-color: rgba(59, 130, 246, 0.4);
+            background: rgba(59, 130, 246, 0.12);
+            font-weight: 600;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .status-pill.ok {
+            border-color: rgba(16, 185, 129, 0.4);
+            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .status-pill.off {
+            border-color: rgba(239, 68, 68, 0.4);
+            color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .status-pill.warn {
+            border-color: rgba(245, 158, 11, 0.4);
+            color: var(--accent-yellow);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px 24px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            border-color: rgba(59, 130, 246, 0.25);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2, .card h3 {
+            margin-top: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .muted { color: var(--text-muted); }
+
+        .section-wide { grid-column: 1 / -1; }
+        .section-half { grid-column: span 2; }
+        @media (max-width: 1200px) { .section-half { grid-column: 1 / -1; } }
+
+        .btn {
+            cursor: pointer;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #fff;
+        }
+
+        .btn.primary:hover { opacity: 0.9; }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+
+        .btn.danger:hover { opacity: 0.9; }
+
+        .btn.secondary {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-blue);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            max-height: 280px;
+            overflow: auto;
+            color: var(--text-secondary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        tr:hover td { background: var(--bg-card-hover); }
+
+        select {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 7px 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+        }
+
+        @media (max-width: 860px) {
+            .navbar { flex-direction: column; align-items: flex-start; }
+            .status-bar { justify-content: flex-start; }
+        }
+
+        @media (max-width: 640px) {
+            .container { padding: 12px; }
+            .grid { grid-template-columns: 1fr; gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">
+            <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="bgGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#3b82f6"/>
+                        <stop offset="100%" stop-color="#8b5cf6"/>
+                    </linearGradient>
+                    <linearGradient id="boltGrad" x1="40" y1="20" x2="60" y2="80" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#fbbf24"/>
+                        <stop offset="100%" stop-color="#f59e0b"/>
+                    </linearGradient>
+                </defs>
+                <rect x="4" y="4" width="92" height="92" rx="22" fill="url(#bgGrad)"/>
+                <polyline points="18,68 32,58 44,64 56,42 68,50 82,28" stroke="rgba(255,255,255,0.35)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M56 18 L42 50 L54 50 L44 82 L72 44 L56 44 Z" fill="url(#boltGrad)" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <span class="brand-text">TWS Bot</span>
+        </div>
+        <div class="nav-links">
+            <a href="/live" class="nav-link {% if page == 'live' %}active{% endif %}">Live</a>
+            <a href="/simulations" class="nav-link {% if page == 'simulations' %}active{% endif %}">Simulations</a>
+            <a href="/config" class="nav-link {% if page == 'config' %}active{% endif %}">Config</a>
+        </div>
+        <div class="status-bar">
+            <span class="status-pill" id="mode-pill">MODE: --</span>
+            <span class="status-pill" id="symbol-pill">SYMBOL: --</span>
+            <span class="status-pill" id="source-pill">DATA: --</span>
+            <span class="status-pill" id="feed-pill">FEED: --</span>
+            <span class="status-pill off" id="broker-pill">BROKER: --</span>
+            <span class="status-pill off" id="live-pill">BOT: INACTIVE</span>
+            <span class="status-pill off" id="ready-pill">NOT READY</span>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        async function updateGlobalStatusBar() {
+            try {
+                const res = await fetch('/api/bot/status');
+                const data = await res.json();
+
+                const mode = data.trading_mode || '--';
+                const symbol = data.symbol || '--';
+                const isManualActive = Boolean(data.is_live_active);
+                const isEffectiveActive = Boolean(data.effective_live_active);
+                const isGuardPaused = Boolean(data.live_pause_guard);
+
+                const activeSource = String(data.data_active_source || '--').toUpperCase();
+                const fallbackSource = String(data.data_fallback_source || 'BROKER').toUpperCase();
+                const activeLag = data.data_active_lag_seconds;
+                const activeIsStale = Boolean(data.data_active_is_stale);
+
+                const extHours = Boolean(data.extended_hours);
+                document.getElementById('mode-pill').innerText = extHours ? `MODE: ${mode} (EXT)` : `MODE: ${mode}`;
+                document.getElementById('symbol-pill').innerText = `SYMBOL: ${symbol}`;
+
+                const sourcePill = document.getElementById('source-pill');
+                sourcePill.innerText = `DATA: ${activeSource}`;
+                sourcePill.className = 'status-pill ' + (activeSource === '--' ? '' : activeSource === fallbackSource ? 'warn' : 'ok');
+
+                const feedPill = document.getElementById('feed-pill');
+                if (activeLag === null || activeLag === undefined) {
+                    feedPill.innerText = 'FEED: UNKNOWN';
+                    feedPill.className = 'status-pill warn';
+                } else {
+                    const lagText = `${Number(activeLag).toFixed(0)}s`;
+                    feedPill.innerText = activeIsStale ? `FEED: STALE (${lagText})` : `FEED: FRESH (${lagText})`;
+                    feedPill.className = 'status-pill ' + (activeIsStale ? 'off' : 'ok');
+                }
+
+                const brokerConnected = Boolean(data.broker_connected);
+                const brokerPill = document.getElementById('broker-pill');
+                brokerPill.innerText = brokerConnected ? 'BROKER: CONNECTED' : 'BROKER: DISCONNECTED';
+                brokerPill.className = 'status-pill ' + (brokerConnected ? 'ok' : 'off');
+
+                const pauseReasons = data.pause_reasons || [];
+                const livePill = document.getElementById('live-pill');
+                if (isEffectiveActive) {
+                    livePill.innerText = 'BOT: ACTIVE';
+                    livePill.title = '';
+                    livePill.className = 'status-pill ok';
+                } else if (pauseReasons.length > 0) {
+                    livePill.innerText = 'BOT: PAUSED';
+                    livePill.title = pauseReasons.join('\n');
+                    livePill.className = 'status-pill warn';
+                } else {
+                    livePill.innerText = 'BOT: INACTIVE';
+                    livePill.title = '';
+                    livePill.className = 'status-pill off';
+                }
+
+                const readyToTrade = Boolean(data.ready_to_trade);
+                const startupReady = Boolean(data.startup_ready ?? data.indicators_ready);
+                const readyPill = document.getElementById('ready-pill');
+                const pendingSig = data.pending_signal;
+                if (readyToTrade) {
+                    readyPill.innerText = 'READY';
+                    readyPill.title = 'All systems go';
+                    readyPill.className = 'status-pill ok';
+                } else {
+                    const notReadyReasons = [];
+                    if (!brokerConnected) notReadyReasons.push('Broker disconnected');
+                    if (activeIsStale) notReadyReasons.push('Feed stale');
+                    if (!startupReady) notReadyReasons.push('Startup warm-up');
+                    if (!isManualActive) notReadyReasons.push('Trading OFF');
+                    readyPill.innerText = 'NOT READY';
+                    readyPill.title = notReadyReasons.join(', ') || 'Checking...';
+                    readyPill.className = 'status-pill off';
+                }
+                if (pendingSig) {
+                    readyPill.innerText = `RETRY: ${pendingSig.action}`;
+                    readyPill.className = 'status-pill warn';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        setInterval(updateGlobalStatusBar, 5000);
+        updateGlobalStatusBar();
+    </script>
+
+    {% block scripts %}{% endblock %}
+
+    <footer style="text-align:center;padding:16px 0 20px;color:var(--text-muted);font-size:0.7rem;letter-spacing:0.3px;border-top:1px solid var(--border);margin-top:24px;">
+        TWS Bot v3.6.0-broker-auth &middot; built 2026-04-25
+    </footer>
+</body>
+</html>

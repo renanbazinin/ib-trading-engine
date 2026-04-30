@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live & Simulation Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin-bottom: 2rem; border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
+        .grid { display: flex; gap: 20px; flex-wrap: wrap; }
+        .card { flex: 1; min-width: 300px; border: 1px solid #eee; padding: 15px; border-radius: 5px;}
+        pre { background: #f4f4f4; padding: 10px; border-radius: 3px; max-height: 250px; overflow-y: auto;}
+    </style>
+</head>
+<body>
+    <h1>Multi-Strategy Trading Bot</h1>
+    
+    <div class="section" style="display: flex; justify-content: space-between; align-items: center; background: #fdfdfd; padding: 15px;">
+        <div>
+            <h2 style="margin: 0;">Trading Bot: <span id="bot-status" style="color: red;">INACTIVE</span></h2>
+            <small>When inactive, live signals update indicators but orders will not trigger. Simulations always run.</small>
+        </div>
+        <button id="toggle-btn" style="padding: 10px 20px; font-size: 16px; cursor: pointer; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px;">
+            Turn ON Trading
+        </button>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Live Account</h2>
+            <pre id="account-data">Waiting...</pre>
+        </div>
+        <div class="card">
+            <h2>Live Positions</h2>
+            <pre id="positions-data">Waiting...</pre>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Simulated Portfolios</h2>
+        <div class="grid" id="simulations-container">
+            Fetching...
+        </div>
+    </div>
+
+    <script>
+        async function reloadData() {
+            try {
+                // Fetch live data
+                const accRes = await fetch('/api/live/account');
+                document.getElementById('account-data').innerText = JSON.stringify(await accRes.json(), null, 2);
+
+                const posRes = await fetch('/api/live/positions');
+                document.getElementById('positions-data').innerText = JSON.stringify(await posRes.json(), null, 2);
+
+                // Fetch sim data
+                const simRes = await fetch('/api/simulations');
+                const simData = await simRes.json();
+                
+                const simContainer = document.getElementById('simulations-container');
+                simContainer.innerHTML = '';
+
+                if (simData && simData.simulations) {
+                    simData.simulations.forEach(sim => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.innerHTML = `
+                            <h3>SIM: ${sim.id}</h3>
+                            <p><b>Equity:</b> $${sim.equity}</p>
+                            <p><b>Position:</b> ${sim.position} (Avg: $${sim.avg_cost})</p>
+                            <h4>Strategy Config</h4>
+                            <pre>${JSON.stringify(sim.config, null, 2)}</pre>
+                        `;
+                        simContainer.appendChild(card);
+                    });
+                }
+
+                // Check Bot Active status
+                const botRes = await fetch('/api/bot/status');
+                const botData = await botRes.json();
+                
+                const toggleBtn = document.getElementById('toggle-btn');
+                const botStatusEl = document.getElementById('bot-status');
+
+                if (botData.is_live_active) {
+                    botStatusEl.innerText = "ACTIVE";
+                    botStatusEl.style.color = "green";
+                    toggleBtn.innerText = "Turn OFF Trading";
+                    toggleBtn.style.backgroundColor = "#dc3545";
+                } else {
+                    botStatusEl.innerText = "INACTIVE";
+                    botStatusEl.style.color = "red";
+                    toggleBtn.innerText = "Turn ON Trading";
+                    toggleBtn.style.backgroundColor = "#28a745";
+                }
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        
+        document.getElementById('toggle-btn').addEventListener('click', async () => {
+            const botStatusEl = document.getElementById('bot-status');
+            const isCurrentlyActive = botStatusEl.innerText === 'ACTIVE';
+
+            const confirmMessage = isCurrentlyActive
+                ? 'Are you sure you want to turn OFF live trading?'
+                : 'Are you sure you want to turn ON live trading? This may place real orders when TRADING_MODE is LIVE.';
+
+            if (!window.confirm(confirmMessage)) {
+                return;
+            }
+
+            const res = await fetch('/api/bot/toggle', { method: 'POST' });
+            if (res.ok) {
+                reloadData();
+            }
+        });
+
+        // Polling every 5 seconds
+        setInterval(reloadData, 5000);
+        reloadData();
+    </script>
+</body>
+</html>

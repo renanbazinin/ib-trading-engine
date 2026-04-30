@@ -1,0 +1,36 @@
+{
+  "defaults": {
+    "starting_balance": 10000,
+    "trade_quantity": 10,
+    "max_recent_events": 200,
+    "near_band_pct": 0.001
+  },
+  "export_policy": {
+    "summary_filename": "latest_sims.json",
+    "summary_every_n_updates": 1,
+    "global_recent_limit": 200
+  },
+  "simulations": [
+    {
+      "id": "RSI_BB_FEE_AWARE_LIVE_MATCH",
+      "name": "RSI+BB Fee-aware (matches .env)",
+      "enabled": true,
+      "strategy": "RSI_BB_FEE_AWARE",
+      "rsi_period": 14,
+      "bb_length": 20,
+      "bb_std": 2.2,
+      "overbought": 70,
+      "oversold": 33,
+      "trend_sma_period": 50,
+      "bear_dip_rsi": 28,
+      "bb_tolerance": 0.0015,
+      "fee_per_trade": 2.5,
+      "estimated_trade_notional": 1000.0,
+      "min_reward_pct": 0.006,
+      "fee_reward_multiple": 3.0,
+      "min_bb_width_pct": 0.008,
+      "require_confirmation": true,
+      "exit_rsi": 55
+    }
+  ]
+}
